@@ -134,10 +134,12 @@ export default function MetaAdsPage() {
               </Link>
             </>
           )}
-          <Button className="gap-2" onClick={() => setShowTokenForm(true)}>
-            <Link2 className="h-4 w-4" />
-            {hasConnection ? "Add Account" : "Connect Meta Ads"}
-          </Button>
+          <Link href="/api/meta-ads/connect">
+            <Button className="gap-2">
+              <Link2 className="h-4 w-4" />
+              {hasConnection ? "Add Account" : "Connect Meta Ads"}
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -222,10 +224,12 @@ export default function MetaAdsPage() {
                 and Instagram campaigns, tracking performance, and
                 optimizing your ads.
               </p>
-              <Button className="mt-4 gap-2" onClick={() => setShowTokenForm(true)}>
-                <Link2 className="h-4 w-4" />
-                Connect Meta Ads
-              </Button>
+              <Link href="/api/meta-ads/connect">
+                <Button className="mt-4 gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Connect Meta Ads
+                </Button>
+              </Link>
             </div>
           ) : (
             <div className="space-y-3">
