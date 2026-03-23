@@ -1,7 +1,7 @@
 import { refreshAccessToken } from "./oauth";
 import { prisma } from "@/lib/prisma";
 
-const API_VERSION = "v18";
+const API_VERSION = "v19";
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`;
 
 export class GoogleAdsClient {

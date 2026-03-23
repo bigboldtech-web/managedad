@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const tokens = await exchangeCodeForTokens(code);
 
     // Fetch accessible customer accounts using the new access token
-    const listUrl = `https://googleads.googleapis.com/v18/customers:listAccessibleCustomers`;
+    const listUrl = `https://googleads.googleapis.com/v19/customers:listAccessibleCustomers`;
     const listRes = await fetch(listUrl, {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       let accountName: string | null = null;
       try {
         const detailRes = await fetch(
-          `https://googleads.googleapis.com/v18/customers/${customerId}`,
+          `https://googleads.googleapis.com/v19/customers/${customerId}`,
           {
             headers: {
               Authorization: `Bearer ${tokens.access_token}`,
