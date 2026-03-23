@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { serializeBigInt } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      return NextResponse.json(campaign);
+      return NextResponse.json(serializeBigInt(campaign));
     } catch (error) {
       console.error("Error fetching campaign:", error);
       return NextResponse.json(
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
       orderBy: { updatedAt: "desc" },
     });
 
-    return NextResponse.json(campaigns);
+    return NextResponse.json(serializeBigInt(campaigns));
   } catch (error) {
     console.error("Error fetching campaigns:", error);
     return NextResponse.json(
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(campaign, { status: 201 });
+    return NextResponse.json(serializeBigInt(campaign), { status: 201 });
   } catch (error) {
     console.error("Error creating campaign:", error);
     return NextResponse.json(
@@ -208,7 +209,7 @@ export async function PATCH(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json(serializeBigInt(updated));
   } catch (error) {
     console.error("Error updating campaign:", error);
     return NextResponse.json(

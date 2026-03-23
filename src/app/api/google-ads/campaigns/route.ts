@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createGoogleAdsClient } from "@/lib/google-ads/client";
 import { z } from "zod";
+import { serializeBigInt } from "@/lib/utils";
 
 export async function GET() {
   const session = await auth();
@@ -23,7 +24,7 @@ export async function GET() {
       orderBy: { updatedAt: "desc" },
     });
 
-    return NextResponse.json(campaigns);
+    return NextResponse.json(serializeBigInt(campaigns));
   } catch (error) {
     console.error("Error fetching campaigns:", error);
     return NextResponse.json(
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(campaign, { status: 201 });
+    return NextResponse.json(serializeBigInt(campaign), { status: 201 });
   } catch (error) {
     console.error("Error creating campaign:", error);
     return NextResponse.json(

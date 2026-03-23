@@ -26,3 +26,16 @@ export function formatCompactNumber(num: number): string {
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toString();
 }
+
+/**
+ * Recursively convert BigInt values to Number in any object/array.
+ * Use before NextResponse.json() for Prisma results with BigInt fields.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function serializeBigInt<T>(data: T): T {
+  return JSON.parse(
+    JSON.stringify(data, (_key, value) =>
+      typeof value === "bigint" ? Number(value) : value
+    )
+  );
+}
