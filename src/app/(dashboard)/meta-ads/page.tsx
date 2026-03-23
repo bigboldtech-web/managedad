@@ -10,6 +10,7 @@ import {
   XCircle,
   Unlink,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +52,7 @@ export default function MetaAdsPage() {
   const [accessToken, setAccessToken] = useState("");
   const [saving, setSaving] = useState(false);
   const [tokenError, setTokenError] = useState("");
+  const [syncing, setSyncing] = useState(false);
 
   async function handleSaveToken() {
     if (!accessToken.trim()) return;
@@ -77,6 +79,21 @@ export default function MetaAdsPage() {
       setTokenError("Failed to save connection");
     }
     setSaving(false);
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/meta-ads/sync", { method: "POST" });
+      if (res.ok) {
+        // Refresh campaigns after sync
+        const campRes = await fetch("/api/meta-ads/campaigns");
+        if (campRes.ok) setCampaigns(await campRes.json());
+      }
+    } catch (error) {
+      console.error("Sync failed:", error);
+    }
+    setSyncing(false);
   }
 
   async function handleDisconnect(connectionId: string) {
@@ -126,6 +143,15 @@ export default function MetaAdsPage() {
         <div className="flex gap-2">
           {hasConnection && (
             <>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleSync}
+                disabled={syncing}
+              >
+                <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing..." : "Sync Data"}
+              </Button>
               <Link href="/meta-ads/ad-sets">
                 <Button variant="outline">Manage Ad Sets</Button>
               </Link>
