@@ -10,6 +10,8 @@ import {
   ExternalLink,
   CheckCircle2,
   XCircle,
+  Unlink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +47,22 @@ export default function GoogleAdsPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+
+  async function handleDisconnect(connectionId: string) {
+    setDisconnecting(connectionId);
+    try {
+      const res = await fetch(`/api/google-ads/connections?id=${connectionId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+      }
+    } catch (error) {
+      console.error("Failed to disconnect:", error);
+    }
+    setDisconnecting(null);
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -140,9 +158,24 @@ export default function GoogleAdsPage() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant={conn.isActive ? "default" : "destructive"}>
-                    {conn.isActive ? "Active" : "Disconnected"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={conn.isActive ? "default" : "destructive"}>
+                      {conn.isActive ? "Active" : "Disconnected"}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDisconnect(conn.id)}
+                      disabled={disconnecting === conn.id}
+                    >
+                      {disconnecting === conn.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Unlink className="mr-2 h-4 w-4" />
+                      )}
+                      Disconnect
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -14,7 +14,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const connection = await prisma.googleAdsConnection.findFirst({
+    const connection = await prisma.metaAdsConnection.findFirst({
       where: { id, userId: session.user.id },
     });
 
@@ -22,11 +22,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    await prisma.googleAdsConnection.delete({ where: { id } });
+    await prisma.metaAdsConnection.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting Google Ads connection:", error);
+    console.error("Error deleting Meta Ads connection:", error);
     return NextResponse.json(
       { error: "Failed to delete connection" },
       { status: 500 }
@@ -41,11 +41,11 @@ export async function GET() {
   }
 
   try {
-    const connections = await prisma.googleAdsConnection.findMany({
+    const connections = await prisma.metaAdsConnection.findMany({
       where: { userId: session.user.id },
       select: {
         id: true,
-        customerId: true,
+        adAccountId: true,
         accountName: true,
         isActive: true,
         lastSyncAt: true,
@@ -56,7 +56,7 @@ export async function GET() {
 
     return NextResponse.json(connections);
   } catch (error) {
-    console.error("Error fetching Google Ads connections:", error);
+    console.error("Error fetching Meta Ads connections:", error);
     return NextResponse.json(
       { error: "Failed to fetch connections" },
       { status: 500 }
