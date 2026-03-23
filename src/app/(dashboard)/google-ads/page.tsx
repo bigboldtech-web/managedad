@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Target,
   Link2,
@@ -22,6 +23,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 interface Connection {
@@ -43,11 +46,59 @@ interface Campaign {
   spend: number;
 }
 
-export default function GoogleAdsPage() {
+function GoogleAdsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [showCustomerIdForm, setShowCustomerIdForm] = useState(false);
+  const [customerIdInput, setCustomerIdInput] = useState("");
+  const [accountNameInput, setAccountNameInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (searchParams.get("setup") === "enter_customer_id") {
+      setShowCustomerIdForm(true);
+    }
+  }, [searchParams]);
+
+  async function handleSaveCustomerId() {
+    const sanitized = customerIdInput.replace(/[-\s]/g, "");
+    if (!/^\d{3,10}$/.test(sanitized)) {
+      setFormError("Enter a valid Google Ads Customer ID (e.g., 123-456-7890)");
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+    try {
+      const res = await fetch("/api/google-ads/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: sanitized,
+          accountName: accountNameInput || null,
+        }),
+      });
+      if (res.ok) {
+        setShowCustomerIdForm(false);
+        setCustomerIdInput("");
+        setAccountNameInput("");
+        router.replace("/google-ads?connected=true");
+        // Refresh connections
+        const connRes = await fetch("/api/google-ads/connections");
+        if (connRes.ok) setConnections(await connRes.json());
+      } else {
+        const data = await res.json();
+        setFormError(data.error || "Failed to save connection");
+      }
+    } catch {
+      setFormError("Failed to save connection");
+    }
+    setSaving(false);
+  }
 
   async function handleDisconnect(connectionId: string) {
     setDisconnecting(connectionId);
@@ -85,6 +136,57 @@ export default function GoogleAdsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Customer ID Entry Dialog */}
+      {showCustomerIdForm && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader>
+            <CardTitle>Enter Your Google Ads Customer ID</CardTitle>
+            <CardDescription>
+              Google account connected successfully! Now enter your Google Ads
+              Customer ID to complete the setup. You can find it in the top-right
+              corner of your Google Ads dashboard (format: 123-456-7890).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="customerId">Customer ID *</Label>
+                <Input
+                  id="customerId"
+                  placeholder="123-456-7890"
+                  value={customerIdInput}
+                  onChange={(e) => setCustomerIdInput(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accountName">Account Name (optional)</Label>
+                <Input
+                  id="accountName"
+                  placeholder="My Business Account"
+                  value={accountNameInput}
+                  onChange={(e) => setAccountNameInput(e.target.value)}
+                />
+              </div>
+              {formError && (
+                <p className="text-sm text-destructive">{formError}</p>
+              )}
+              <div className="flex gap-2">
+                <Button onClick={handleSaveCustomerId} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Connection
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCustomerIdForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Google Ads</h1>
@@ -261,5 +363,13 @@ export default function GoogleAdsPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function GoogleAdsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+      <GoogleAdsContent />
+    </Suspense>
   );
 }
