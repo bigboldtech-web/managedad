@@ -47,6 +47,37 @@ export default function MetaAdsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [showTokenForm, setShowTokenForm] = useState(false);
+  const [accessToken, setAccessToken] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [tokenError, setTokenError] = useState("");
+
+  async function handleSaveToken() {
+    if (!accessToken.trim()) return;
+    setSaving(true);
+    setTokenError("");
+    try {
+      const res = await fetch("/api/meta-ads/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken: accessToken.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTokenError(data.error || "Failed to connect");
+        setSaving(false);
+        return;
+      }
+      // Refresh connections
+      const connRes = await fetch("/api/meta-ads/connections");
+      if (connRes.ok) setConnections(await connRes.json());
+      setShowTokenForm(false);
+      setAccessToken("");
+    } catch {
+      setTokenError("Failed to save connection");
+    }
+    setSaving(false);
+  }
 
   async function handleDisconnect(connectionId: string) {
     setDisconnecting(connectionId);
@@ -103,14 +134,70 @@ export default function MetaAdsPage() {
               </Link>
             </>
           )}
-          <Link href="/api/meta-ads/connect">
-            <Button className="gap-2">
-              <Link2 className="h-4 w-4" />
-              {hasConnection ? "Add Account" : "Connect Meta Ads"}
-            </Button>
-          </Link>
+          <Button className="gap-2" onClick={() => setShowTokenForm(true)}>
+            <Link2 className="h-4 w-4" />
+            {hasConnection ? "Add Account" : "Connect Meta Ads"}
+          </Button>
         </div>
       </div>
+
+      {/* Manual Token Entry */}
+      {showTokenForm && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader>
+            <CardTitle>Connect Meta Ads Account</CardTitle>
+            <CardDescription>
+              Paste your Meta access token from the{" "}
+              <a
+                href="https://developers.facebook.com/tools/explorer/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                Graph API Explorer
+              </a>
+              . Make sure to select your ManagedAd app and grant{" "}
+              <strong>ads_read</strong> and <strong>ads_management</strong>{" "}
+              permissions.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                Access Token *
+              </label>
+              <input
+                type="text"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder="Paste your access token here"
+                className="w-full rounded-md border px-3 py-2 text-sm"
+              />
+            </div>
+            {tokenError && (
+              <p className="text-sm text-red-600">{tokenError}</p>
+            )}
+            <div className="flex gap-2">
+              <Button onClick={handleSaveToken} disabled={saving || !accessToken.trim()}>
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Save Connection
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowTokenForm(false);
+                  setAccessToken("");
+                  setTokenError("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Connection Status */}
       <Card>
@@ -135,12 +222,10 @@ export default function MetaAdsPage() {
                 and Instagram campaigns, tracking performance, and
                 optimizing your ads.
               </p>
-              <Link href="/api/meta-ads/connect">
-                <Button className="mt-4 gap-2">
-                  <Link2 className="h-4 w-4" />
-                  Connect Meta Ads
-                </Button>
-              </Link>
+              <Button className="mt-4 gap-2" onClick={() => setShowTokenForm(true)}>
+                <Link2 className="h-4 w-4" />
+                Connect Meta Ads
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">
