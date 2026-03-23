@@ -60,10 +60,18 @@ function GoogleAdsContent() {
   const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    if (searchParams.get("setup") === "enter_customer_id") {
+    if (searchParams.get("setup") === "enter_customer_id" && connections.length === 0) {
       setShowCustomerIdForm(true);
     }
-  }, [searchParams]);
+    // Hide form once connections exist
+    if (connections.length > 0) {
+      setShowCustomerIdForm(false);
+      // Clean up URL param
+      if (searchParams.get("setup")) {
+        router.replace("/google-ads");
+      }
+    }
+  }, [searchParams, connections, router]);
 
   async function handleSaveCustomerId() {
     const sanitized = customerIdInput.replace(/[-\s]/g, "");
