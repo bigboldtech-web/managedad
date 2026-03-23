@@ -1,4 +1,4 @@
-const META_ADS_SCOPES = "ads_management,ads_read,business_management";
+const META_LOGIN_CONFIG_ID = "1481589483494263";
 
 export function getMetaAuthUrl(): string {
   const clientId = process.env.META_APP_ID!;
@@ -7,7 +7,7 @@ export function getMetaAuthUrl(): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: META_ADS_SCOPES,
+    config_id: META_LOGIN_CONFIG_ID,
     response_type: "code",
     state: crypto.randomUUID(),
   });
