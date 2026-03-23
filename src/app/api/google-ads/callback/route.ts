@@ -34,9 +34,13 @@ export async function GET(req: NextRequest) {
     let customerIds: string[] = [];
     if (listRes.ok) {
       const listData = await listRes.json();
+      console.log("Accessible customers response:", JSON.stringify(listData));
       customerIds = (listData.resourceNames || []).map((rn: string) =>
         rn.replace("customers/", "")
       );
+    } else {
+      const errorBody = await listRes.text();
+      console.error("listAccessibleCustomers failed:", listRes.status, errorBody);
     }
 
     // Fall back to placeholder if no customers found
