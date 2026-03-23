@@ -8,22 +8,25 @@ import { MetaAdsClient } from "@/lib/meta-ads/client";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/login", baseUrl));
   }
 
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
-      new URL("/meta-ads?error=no_code", req.url)
+      new URL("/meta-ads?error=no_code", baseUrl)
     );
   }
 
   const errorParam = req.nextUrl.searchParams.get("error");
   if (errorParam) {
     return NextResponse.redirect(
-      new URL(`/meta-ads?error=${errorParam}`, req.url)
+      new URL(`/meta-ads?error=${errorParam}`, baseUrl)
     );
   }
 
@@ -43,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     if (adAccountsResponse.data.length === 0) {
       return NextResponse.redirect(
-        new URL("/meta-ads?error=no_ad_accounts", req.url)
+        new URL("/meta-ads?error=no_ad_accounts", baseUrl)
       );
     }
 
@@ -82,12 +85,12 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.redirect(
-      new URL("/meta-ads?connected=true", req.url)
+      new URL("/meta-ads?connected=true", baseUrl)
     );
   } catch (error) {
     console.error("Meta Ads OAuth error:", error);
     return NextResponse.redirect(
-      new URL("/meta-ads?error=oauth_failed", req.url)
+      new URL("/meta-ads?error=oauth_failed", baseUrl)
     );
   }
 }

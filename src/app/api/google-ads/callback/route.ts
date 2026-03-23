@@ -4,15 +4,18 @@ import { exchangeCodeForTokens } from "@/lib/google-ads/oauth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/login", baseUrl));
   }
 
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
-      new URL("/google-ads?error=no_code", req.url)
+      new URL("/google-ads?error=no_code", baseUrl)
     );
   }
 
@@ -46,12 +49,12 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.redirect(
-      new URL("/google-ads?connected=true", req.url)
+      new URL("/google-ads?connected=true", baseUrl)
     );
   } catch (error) {
     console.error("Google Ads OAuth error:", error);
     return NextResponse.redirect(
-      new URL("/google-ads?error=oauth_failed", req.url)
+      new URL("/google-ads?error=oauth_failed", baseUrl)
     );
   }
 }
