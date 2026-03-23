@@ -2,11 +2,9 @@ const META_LOGIN_CONFIG_ID = "1481589483494263";
 
 export function getMetaAuthUrl(): string {
   const clientId = process.env.META_APP_ID!;
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/meta-ads/callback`;
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: redirectUri,
     config_id: META_LOGIN_CONFIG_ID,
     response_type: "code",
     state: crypto.randomUUID(),
