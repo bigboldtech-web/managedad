@@ -1,0 +1,457 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  hashedPassword String?
+  image          String?
+  role           UserRole  @default(USER)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts             Account[]
+  sessions             Session[]
+  subscription         Subscription?
+  googleAdsConnections GoogleAdsConnection[]
+  metaAdsConnections   MetaAdsConnection[]
+  campaigns            Campaign[]
+  optimizationRuns     OptimizationRun[]
+  cityCampaigns        CityCampaign[]
+  optimizationSettings OptimizationSettings?
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// SUBSCRIPTIONS
+// ============================================================
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  stripeCustomerId     String             @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  TRIALING
+}
+
+// ============================================================
+// AD PLATFORM CONNECTIONS
+// ============================================================
+
+model GoogleAdsConnection {
+  id               String   @id @default(cuid())
+  userId           String
+  customerId       String
+  managerAccountId String?
+  refreshToken     String   @db.Text
+  accessToken      String?  @db.Text
+  tokenExpiresAt   DateTime?
+  accountName      String?
+  isActive         Boolean  @default(true)
+  lastSyncAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns Campaign[] @relation("GoogleAdsCampaigns")
+
+  @@unique([userId, customerId])
+}
+
+model MetaAdsConnection {
+  id             String   @id @default(cuid())
+  userId         String
+  adAccountId    String
+  businessId     String?
+  accessToken    String   @db.Text
+  tokenExpiresAt DateTime?
+  accountName    String?
+  isActive       Boolean  @default(true)
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns Campaign[] @relation("MetaAdsCampaigns")
+
+  @@unique([userId, adAccountId])
+}
+
+// ============================================================
+// CAMPAIGNS
+// ============================================================
+
+model Campaign {
+  id                    String         @id @default(cuid())
+  userId                String
+  platform              AdPlatform
+  externalId            String?        @unique
+  name                  String
+  status                CampaignStatus @default(DRAFT)
+  objective             String?
+  dailyBudget           Decimal?       @db.Decimal(12, 2)
+  totalBudget           Decimal?       @db.Decimal(12, 2)
+  currency              String         @default("USD")
+  startDate             DateTime?
+  endDate               DateTime?
+  googleAdsConnectionId String?
+  metaAdsConnectionId   String?
+  targetLocations       Json?
+  targetAudiences       Json?
+  impressions           BigInt         @default(0)
+  clicks                BigInt         @default(0)
+  conversions           Int            @default(0)
+  spend                 Decimal        @default(0) @db.Decimal(12, 2)
+  revenue               Decimal        @default(0) @db.Decimal(12, 2)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleAdsConnection GoogleAdsConnection? @relation("GoogleAdsCampaigns", fields: [googleAdsConnectionId], references: [id])
+  metaAdsConnection   MetaAdsConnection?   @relation("MetaAdsCampaigns", fields: [metaAdsConnectionId], references: [id])
+  adGroups            AdGroup[]
+  ads                 Ad[]
+  keywords            Keyword[]
+  dailyMetrics        DailyMetric[]
+  optimizationActions OptimizationAction[]
+  cityCampaign        CityCampaign?        @relation(fields: [cityCampaignId], references: [id])
+  cityCampaignId      String?
+
+  @@index([userId, platform])
+}
+
+enum AdPlatform {
+  GOOGLE_ADS
+  META_ADS
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+  REMOVED
+}
+
+// ============================================================
+// AD GROUPS / AD SETS
+// ============================================================
+
+model AdGroup {
+  id           String         @id @default(cuid())
+  campaignId   String
+  externalId   String?        @unique
+  name         String
+  status       CampaignStatus @default(DRAFT)
+  bidAmount    Decimal?       @db.Decimal(12, 2)
+  bidStrategy  String?
+  targeting    Json?
+  optimization String?
+  impressions  BigInt         @default(0)
+  clicks       BigInt         @default(0)
+  conversions  Int            @default(0)
+  spend        Decimal        @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ads      Ad[]
+  keywords Keyword[]
+}
+
+// ============================================================
+// ADS
+// ============================================================
+
+model Ad {
+  id           String         @id @default(cuid())
+  campaignId   String
+  adGroupId    String?
+  externalId   String?        @unique
+  name         String?
+  type         AdType
+  status       CampaignStatus @default(DRAFT)
+  headlines    Json?
+  descriptions Json?
+  finalUrl     String?
+  displayUrl   String?
+  imageUrl     String?
+  videoUrl     String?
+  callToAction String?
+  impressions  BigInt         @default(0)
+  clicks       BigInt         @default(0)
+  conversions  Int            @default(0)
+  spend        Decimal        @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  campaign            Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  adGroup             AdGroup?             @relation(fields: [adGroupId], references: [id], onDelete: SetNull)
+  optimizationActions OptimizationAction[]
+}
+
+enum AdType {
+  RESPONSIVE_SEARCH
+  RESPONSIVE_DISPLAY
+  IMAGE
+  VIDEO
+  CAROUSEL
+}
+
+// ============================================================
+// KEYWORDS
+// ============================================================
+
+model Keyword {
+  id           String         @id @default(cuid())
+  campaignId   String
+  adGroupId    String?
+  externalId   String?        @unique
+  text         String
+  matchType    MatchType
+  isNegative   Boolean        @default(false)
+  status       CampaignStatus @default(ACTIVE)
+  maxCpcBid    Decimal?       @db.Decimal(12, 2)
+  qualityScore Int?
+  impressions  BigInt         @default(0)
+  clicks       BigInt         @default(0)
+  conversions  Int            @default(0)
+  spend        Decimal        @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  campaign            Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  adGroup             AdGroup?             @relation(fields: [adGroupId], references: [id], onDelete: SetNull)
+  optimizationActions OptimizationAction[]
+
+  @@index([campaignId, matchType])
+}
+
+enum MatchType {
+  EXACT
+  PHRASE
+  BROAD
+}
+
+// ============================================================
+// DAILY METRICS
+// ============================================================
+
+model DailyMetric {
+  id          String     @id @default(cuid())
+  campaignId  String
+  date        DateTime   @db.Date
+  platform    AdPlatform
+  impressions BigInt     @default(0)
+  clicks      BigInt     @default(0)
+  conversions Int        @default(0)
+  spend       Decimal    @default(0) @db.Decimal(12, 2)
+  revenue     Decimal    @default(0) @db.Decimal(12, 2)
+  ctr         Decimal?   @db.Decimal(8, 4)
+  cpc         Decimal?   @db.Decimal(12, 4)
+  cpa         Decimal?   @db.Decimal(12, 2)
+  roas        Decimal?   @db.Decimal(8, 4)
+  createdAt   DateTime   @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@index([date])
+}
+
+// ============================================================
+// OPTIMIZATION
+// ============================================================
+
+model OptimizationRun {
+  id          String              @id @default(cuid())
+  userId      String
+  triggerType OptimizationTrigger @default(SCHEDULED)
+  status      RunStatus           @default(PENDING)
+  startedAt   DateTime?
+  completedAt DateTime?
+  summary     Json?
+  errorLog    String?             @db.Text
+  createdAt   DateTime            @default(now())
+
+  user    User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actions OptimizationAction[]
+}
+
+enum OptimizationTrigger {
+  SCHEDULED
+  MANUAL
+}
+
+enum RunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model OptimizationAction {
+  id                String       @id @default(cuid())
+  optimizationRunId String
+  campaignId        String?
+  adId              String?
+  keywordId         String?
+  actionType        ActionType
+  description       String
+  previousValue     Json?
+  newValue          Json?
+  status            ActionStatus @default(PENDING)
+  appliedAt         DateTime?
+  createdAt         DateTime     @default(now())
+
+  optimizationRun OptimizationRun @relation(fields: [optimizationRunId], references: [id], onDelete: Cascade)
+  campaign        Campaign?       @relation(fields: [campaignId], references: [id])
+  ad              Ad?             @relation(fields: [adId], references: [id])
+  keyword         Keyword?        @relation(fields: [keywordId], references: [id])
+}
+
+enum ActionType {
+  INCREASE_BUDGET
+  DECREASE_BUDGET
+  PAUSE_AD
+  ENABLE_AD
+  PAUSE_KEYWORD
+  ADD_NEGATIVE_KEYWORD
+  ADJUST_BID
+  CREATE_AD_VARIATION
+  SUGGEST_AB_TEST
+}
+
+enum ActionStatus {
+  PENDING
+  APPROVED
+  APPLIED
+  REJECTED
+  FAILED
+}
+
+// ============================================================
+// CITY CAMPAIGNS
+// ============================================================
+
+model CityCampaign {
+  id              String             @id @default(cuid())
+  userId          String
+  cityName        String
+  state           String?
+  country         String             @default("US")
+  businessType    String?
+  researchData    Json?
+  generatedConfig Json?
+  status          CityCampaignStatus @default(RESEARCHING)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+}
+
+enum CityCampaignStatus {
+  RESEARCHING
+  GENERATED
+  CREATING
+  ACTIVE
+  FAILED
+}
+
+// ============================================================
+// OPTIMIZATION SETTINGS
+// ============================================================
+
+model OptimizationSettings {
+  id                       String  @id @default(cuid())
+  userId                   String  @unique
+  isEnabled                Boolean @default(true)
+  runFrequency             String  @default("WEEKLY")
+  autoApply                Boolean @default(false)
+  minImpressions           Int     @default(100)
+  lowPerformanceThreshold  Decimal @default(0.5) @db.Decimal(5, 2)
+  highPerformanceThreshold Decimal @default(2.0) @db.Decimal(5, 2)
+  maxBudgetIncrease        Decimal @default(25) @db.Decimal(5, 2)
+  maxBudgetDecrease        Decimal @default(50) @db.Decimal(5, 2)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
