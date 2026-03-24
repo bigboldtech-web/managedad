@@ -362,8 +362,8 @@ export default function MetaAdsPage() {
                       <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
                       <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                       <Tooltip
-                        formatter={(value: number, name: string) => name === "Spend" ? [`$${value.toFixed(2)}`, "Spend"] : [value, "Conversions"]}
-                        labelFormatter={(label) => new Date(label).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                        formatter={(value: any, name: any) => name === "Spend" ? [`$${Number(value).toFixed(2)}`, "Spend"] : [value, "Conversions"]}
+                        labelFormatter={(label: any) => new Date(label).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                       />
                       <Legend />
                       <Line yAxisId="left" type="monotone" dataKey="spend" name="Spend" stroke="#1877F2" strokeWidth={2} dot={false} />
@@ -385,8 +385,8 @@ export default function MetaAdsPage() {
                       <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v.toFixed(1)}%`} />
                       <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
                       <Tooltip
-                        formatter={(value: number, name: string) => name === "CTR" ? [`${value.toFixed(2)}%`, "CTR"] : [`$${value.toFixed(2)}`, "CPC"]}
-                        labelFormatter={(label) => new Date(label).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                        formatter={(value: any, name: any) => name === "CTR" ? [`${Number(value).toFixed(2)}%`, "CTR"] : [`$${Number(value).toFixed(2)}`, "CPC"]}
+                        labelFormatter={(label: any) => new Date(label).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                       />
                       <Legend />
                       <Line yAxisId="left" type="monotone" dataKey="ctr" name="CTR" stroke="#6366f1" strokeWidth={2} dot={false} />
