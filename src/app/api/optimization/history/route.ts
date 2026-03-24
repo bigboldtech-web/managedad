@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { serializeBigInt } from "@/lib/utils";
 
 export async function GET() {
   const session = await auth();
@@ -23,7 +24,7 @@ export async function GET() {
       take: 20,
     });
 
-    return NextResponse.json(runs);
+    return NextResponse.json(serializeBigInt(runs));
   } catch (error) {
     console.error("Error fetching optimization history:", error);
     return NextResponse.json(

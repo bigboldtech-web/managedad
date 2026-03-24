@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { serializeBigInt } from "@/lib/utils";
 import { z } from "zod";
 
 export async function GET(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
       orderBy: { spend: "desc" },
     });
 
-    return NextResponse.json(keywords);
+    return NextResponse.json(serializeBigInt(keywords));
   } catch (error) {
     console.error("Error fetching keywords:", error);
     return NextResponse.json(
