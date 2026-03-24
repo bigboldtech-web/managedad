@@ -99,6 +99,7 @@ interface CampaignData {
 }
 
 interface OverviewData {
+  currency: string;
   summary: Summary;
   previousPeriod: Summary;
   dailyTrend: DailyTrend[];
@@ -214,6 +215,7 @@ export default function MetaAdsPage() {
 
   const s = overview?.summary;
   const prev = overview?.previousPeriod;
+  const cur = overview?.currency || "USD";
 
   const sortedCampaigns = (overview?.campaigns || [])
     .filter((c) => statusFilter === "all" || c.status === statusFilter)
@@ -232,13 +234,13 @@ export default function MetaAdsPage() {
 
   const kpiCards = s && prev
     ? [
-        { title: "Total Spend", value: formatCurrency(s.totalSpend), change: calcChange(s.totalSpend, prev.totalSpend), icon: DollarSign, invertColor: true },
+        { title: "Total Spend", value: formatCurrency(s.totalSpend, cur), change: calcChange(s.totalSpend, prev.totalSpend), icon: DollarSign, invertColor: true },
         { title: "Impressions", value: formatCompactNumber(s.totalImpressions), change: calcChange(s.totalImpressions, prev.totalImpressions), icon: Eye },
         { title: "Reach", value: formatCompactNumber(s.totalReach), change: calcChange(s.totalReach, prev.totalReach), icon: Users },
         { title: "Clicks", value: formatCompactNumber(s.totalClicks), change: calcChange(s.totalClicks, prev.totalClicks), icon: MousePointerClick },
         { title: "CTR", value: formatPercent(s.avgCtr), change: calcChange(s.avgCtr, prev.avgCtr), icon: BarChart3 },
         { title: "Conversions", value: formatNumber(s.totalConversions), change: calcChange(s.totalConversions, prev.totalConversions), icon: Target },
-        { title: "Cost per Result", value: formatCurrency(s.costPerResult), change: calcChange(s.costPerResult, prev.costPerResult), icon: Zap, invertColor: true },
+        { title: "Cost per Result", value: formatCurrency(s.costPerResult, cur), change: calcChange(s.costPerResult, prev.costPerResult), icon: Zap, invertColor: true },
         { title: "ROAS", value: `${s.avgRoas.toFixed(2)}x`, change: calcChange(s.avgRoas, prev.avgRoas), icon: TrendingUp },
       ]
     : [];
@@ -359,10 +361,10 @@ export default function MetaAdsPage() {
                     <LineChart data={overview.dailyTrend}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                       <XAxis dataKey="date" tickFormatter={(v) => new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric" })} tick={{ fontSize: 11 }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, cur)} />
                       <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                       <Tooltip
-                        formatter={(value: any, name: any) => name === "Spend" ? [`$${Number(value).toFixed(2)}`, "Spend"] : [value, "Conversions"]}
+                        formatter={(value: any, name: any) => name === "Spend" ? [formatCurrency(Number(value), cur), "Spend"] : [value, "Conversions"]}
                         labelFormatter={(label: any) => new Date(label).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                       />
                       <Legend />
@@ -383,9 +385,9 @@ export default function MetaAdsPage() {
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                       <XAxis dataKey="date" tickFormatter={(v) => new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric" })} tick={{ fontSize: 11 }} />
                       <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v.toFixed(1)}%`} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v, cur)} />
                       <Tooltip
-                        formatter={(value: any, name: any) => name === "CTR" ? [`${Number(value).toFixed(2)}%`, "CTR"] : [`$${Number(value).toFixed(2)}`, "CPC"]}
+                        formatter={(value: any, name: any) => name === "CTR" ? [`${Number(value).toFixed(2)}%`, "CTR"] : [formatCurrency(Number(value), cur), "CPC"]}
                         labelFormatter={(label: any) => new Date(label).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                       />
                       <Legend />
@@ -459,9 +461,9 @@ export default function MetaAdsPage() {
                           {(c.objective || "—").replace("OUTCOME_", "").replace(/_/g, " ")}
                         </td>
                         <td className="px-3 py-3 text-right font-medium">{c.conversions > 0 ? formatNumber(c.conversions) : "—"}</td>
-                        <td className="px-3 py-3 text-right">{c.costPerResult > 0 ? formatCurrency(c.costPerResult) : "—"}</td>
-                        <td className="px-3 py-3 text-right">{c.dailyBudget > 0 ? `${formatCurrency(c.dailyBudget)}/day` : "—"}</td>
-                        <td className="px-3 py-3 text-right font-medium">{formatCurrency(c.spend)}</td>
+                        <td className="px-3 py-3 text-right">{c.costPerResult > 0 ? formatCurrency(c.costPerResult, cur) : "—"}</td>
+                        <td className="px-3 py-3 text-right">{c.dailyBudget > 0 ? `${formatCurrency(c.dailyBudget, cur)}/day` : "—"}</td>
+                        <td className="px-3 py-3 text-right font-medium">{formatCurrency(c.spend, cur)}</td>
                         <td className="px-3 py-3 text-right">{formatCompactNumber(c.impressions)}</td>
                         <td className="px-3 py-3 text-right">{formatCompactNumber(c.reach)}</td>
                         <td className="px-3 py-3 text-right">{formatCompactNumber(c.clicks)}</td>

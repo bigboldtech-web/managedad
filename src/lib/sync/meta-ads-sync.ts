@@ -22,6 +22,17 @@ export async function syncMetaAdsData(
 
   const adAccountId = connection.adAccountId;
 
+  // Get ad account currency
+  let accountCurrency = "USD";
+  try {
+    const accountInfo = await client.request<{ currency: string }>(
+      `/act_${adAccountId}?fields=currency`
+    );
+    accountCurrency = accountInfo.currency || "USD";
+  } catch (error) {
+    console.error("Failed to fetch account currency:", error);
+  }
+
   // Sync campaigns
   const campaignResponse = await client.listCampaigns(adAccountId);
 
@@ -39,6 +50,7 @@ export async function syncMetaAdsData(
         name: campaign.name,
         status: (statusMap[campaign.status] || "DRAFT") as any,
         objective: campaign.objective,
+        currency: accountCurrency,
         dailyBudget: campaign.daily_budget
           ? Number(campaign.daily_budget) / 100
           : undefined,
@@ -60,6 +72,7 @@ export async function syncMetaAdsData(
         name: campaign.name,
         status: (statusMap[campaign.status] || "DRAFT") as any,
         objective: campaign.objective,
+        currency: accountCurrency,
         dailyBudget: campaign.daily_budget
           ? Number(campaign.daily_budget) / 100
           : null,

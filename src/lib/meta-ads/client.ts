@@ -25,7 +25,7 @@ export class MetaAdsClient {
     this.connectionId = params.connectionId;
   }
 
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {

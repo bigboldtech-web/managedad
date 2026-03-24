@@ -44,8 +44,12 @@ export async function GET(req: NextRequest) {
         objective: true,
         dailyBudget: true,
         externalId: true,
+        currency: true,
       },
     });
+
+    // Detect currency from campaigns (use first non-USD or default)
+    const detectedCurrency = campaigns.find((c) => c.currency !== "USD")?.currency || campaigns[0]?.currency || "USD";
 
     const campaignIds = campaigns.map((c) => c.id);
 
@@ -188,6 +192,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       serializeBigInt({
+        currency: detectedCurrency,
         summary,
         previousPeriod,
         dailyTrend,
