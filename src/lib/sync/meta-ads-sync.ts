@@ -152,6 +152,14 @@ export async function syncMetaAdsData(
         { since: startDate, until: endDate }
       );
 
+      // Log action types for debugging
+      if (insightsResponse.data.length > 0 && insightsResponse.data[0].actions) {
+        console.log(
+          `Campaign ${campaign.externalId} action types:`,
+          insightsResponse.data[0].actions.map((a) => `${a.action_type}=${a.value}`)
+        );
+      }
+
       let totalImpressions = 0;
       let totalClicks = 0;
       let totalReach = 0;
@@ -166,17 +174,49 @@ export async function syncMetaAdsData(
         const reach = Number(insight.reach || 0);
         const spend = Number(insight.spend || 0);
 
-        const conversions = insight.actions?.find(
-          (a) =>
-            a.action_type === "offsite_conversion" ||
-            a.action_type === "lead"
-        );
-        const conversionCount = conversions ? Number(conversions.value) : 0;
+        // Count results from all relevant action types
+        const resultActionTypes = [
+          "lead",
+          "leadgen_grouped",
+          "onsite_conversion.lead_grouped",
+          "onsite_conversion.messaging_first_reply",
+          "offsite_conversion",
+          "offsite_conversion.fb_pixel_purchase",
+          "offsite_conversion.fb_pixel_lead",
+          "offsite_conversion.fb_pixel_complete_registration",
+          "offsite_conversion.custom",
+          "app_install",
+          "landing_page_view",
+          "link_click",
+          "omni_purchase",
+          "purchase",
+        ];
 
-        const purchaseValue = insight.actions?.find(
-          (a) => a.action_type === "offsite_conversion.fb_pixel_purchase"
+        let conversionCount = 0;
+        if (insight.actions) {
+          for (const action of insight.actions) {
+            if (resultActionTypes.includes(action.action_type)) {
+              conversionCount += Number(action.value);
+              break; // Take the first matching result type (most relevant)
+            }
+          }
+          // If no specific match, try the generic "results" metric
+          if (conversionCount === 0) {
+            const genericResult = insight.actions.find(
+              (a) => a.action_type === "page_engagement" ||
+                     a.action_type === "post_engagement" ||
+                     a.action_type === "video_view"
+            );
+            if (genericResult) conversionCount = Number(genericResult.value);
+          }
+        }
+
+        const purchaseAction = insight.actions?.find(
+          (a) => a.action_type === "offsite_conversion.fb_pixel_purchase" ||
+                 a.action_type === "omni_purchase" ||
+                 a.action_type === "purchase"
         );
-        const revenue = purchaseValue ? Number(purchaseValue.value) : 0;
+        const revenue = purchaseAction ? Number(purchaseAction.value) : 0;
 
         totalImpressions += impressions;
         totalClicks += clicks;
