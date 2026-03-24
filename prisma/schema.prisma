@@ -176,6 +176,7 @@ model Campaign {
   targetAudiences       Json?
   impressions           BigInt         @default(0)
   clicks                BigInt         @default(0)
+  reach                 BigInt         @default(0)
   conversions           Int            @default(0)
   spend                 Decimal        @default(0) @db.Decimal(12, 2)
   revenue               Decimal        @default(0) @db.Decimal(12, 2)
@@ -320,6 +321,7 @@ model DailyMetric {
   platform    AdPlatform
   impressions BigInt     @default(0)
   clicks      BigInt     @default(0)
+  reach       BigInt     @default(0)
   conversions Int        @default(0)
   spend       Decimal    @default(0) @db.Decimal(12, 2)
   revenue     Decimal    @default(0) @db.Decimal(12, 2)

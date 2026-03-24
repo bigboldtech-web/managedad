@@ -2,12 +2,17 @@ import { prisma } from "@/lib/prisma";
 import { createMetaAdsClient } from "@/lib/meta-ads/client";
 
 const RATE_LIMIT_DELAY_MS = 500;
+const DEFAULT_SYNC_DAYS = 30;
+const BACKFILL_DAYS = 90;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function syncMetaAdsData(connectionId: string) {
+export async function syncMetaAdsData(
+  connectionId: string,
+  options?: { backfill?: boolean }
+) {
   const client = await createMetaAdsClient(connectionId);
   const connection = await prisma.metaAdsConnection.findUnique({
     where: { id: connectionId },
@@ -109,21 +114,22 @@ export async function syncMetaAdsData(connectionId: string) {
     await delay(RATE_LIMIT_DELAY_MS);
   }
 
-  // Sync ads
+  // Determine sync window
+  const syncDays = options?.backfill ? BACKFILL_DAYS : DEFAULT_SYNC_DAYS;
+
+  // Sync insights for each campaign
   const campaigns = await prisma.campaign.findMany({
     where: {
       metaAdsConnectionId: connectionId,
       externalId: { not: null },
     },
-    include: { adGroups: true },
   });
 
   for (const campaign of campaigns) {
     if (!campaign.externalId) continue;
 
-    // Get insights for each campaign (last 7 days)
     const endDate = new Date().toISOString().split("T")[0];
-    const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const startDate = new Date(Date.now() - syncDays * 24 * 60 * 60 * 1000)
       .toISOString()
       .split("T")[0];
 
@@ -133,25 +139,38 @@ export async function syncMetaAdsData(connectionId: string) {
         { since: startDate, until: endDate }
       );
 
+      let totalImpressions = 0;
+      let totalClicks = 0;
+      let totalReach = 0;
+      let totalSpend = 0;
+      let totalConversions = 0;
+      let totalRevenue = 0;
+
       for (const insight of insightsResponse.data) {
         const date = new Date(insight.date_start);
         const impressions = Number(insight.impressions || 0);
         const clicks = Number(insight.clicks || 0);
+        const reach = Number(insight.reach || 0);
         const spend = Number(insight.spend || 0);
 
-        const conversions =
-          insight.actions?.find(
-            (a) =>
-              a.action_type === "offsite_conversion" ||
-              a.action_type === "lead"
-          );
+        const conversions = insight.actions?.find(
+          (a) =>
+            a.action_type === "offsite_conversion" ||
+            a.action_type === "lead"
+        );
         const conversionCount = conversions ? Number(conversions.value) : 0;
 
-        const purchaseValue =
-          insight.actions?.find(
-            (a) => a.action_type === "offsite_conversion.fb_pixel_purchase"
-          );
+        const purchaseValue = insight.actions?.find(
+          (a) => a.action_type === "offsite_conversion.fb_pixel_purchase"
+        );
         const revenue = purchaseValue ? Number(purchaseValue.value) : 0;
+
+        totalImpressions += impressions;
+        totalClicks += clicks;
+        totalReach += reach;
+        totalSpend += spend;
+        totalConversions += conversionCount;
+        totalRevenue += revenue;
 
         await prisma.dailyMetric.upsert({
           where: {
@@ -163,6 +182,7 @@ export async function syncMetaAdsData(connectionId: string) {
           update: {
             impressions,
             clicks,
+            reach,
             spend,
             conversions: conversionCount,
             revenue,
@@ -177,6 +197,7 @@ export async function syncMetaAdsData(connectionId: string) {
             date,
             impressions,
             clicks,
+            reach,
             spend,
             conversions: conversionCount,
             revenue,
@@ -189,51 +210,18 @@ export async function syncMetaAdsData(connectionId: string) {
       }
 
       // Update campaign aggregate metrics
-      const totalInsights = await client.getInsights(
-        campaign.externalId,
-        { since: startDate, until: endDate }
-      );
-
-      if (totalInsights.data.length > 0) {
-        let totalImpressions = 0;
-        let totalClicks = 0;
-        let totalSpend = 0;
-        let totalConversions = 0;
-        let totalRevenue = 0;
-
-        for (const insight of totalInsights.data) {
-          totalImpressions += Number(insight.impressions || 0);
-          totalClicks += Number(insight.clicks || 0);
-          totalSpend += Number(insight.spend || 0);
-
-          const conv = insight.actions?.find(
-            (a) =>
-              a.action_type === "offsite_conversion" ||
-              a.action_type === "lead"
-          );
-          totalConversions += conv ? Number(conv.value) : 0;
-
-          const pv = insight.actions?.find(
-            (a) =>
-              a.action_type ===
-              "offsite_conversion.fb_pixel_purchase"
-          );
-          totalRevenue += pv ? Number(pv.value) : 0;
-        }
-
-        await prisma.campaign.update({
-          where: { id: campaign.id },
-          data: {
-            impressions: totalImpressions,
-            clicks: totalClicks,
-            spend: totalSpend,
-            conversions: totalConversions,
-            revenue: totalRevenue,
-          },
-        });
-      }
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: {
+          impressions: totalImpressions,
+          clicks: totalClicks,
+          reach: totalReach,
+          spend: totalSpend,
+          conversions: totalConversions,
+          revenue: totalRevenue,
+        },
+      });
     } catch (error) {
-      // Log but continue syncing other campaigns
       console.error(
         `Failed to sync insights for campaign ${campaign.externalId}:`,
         error

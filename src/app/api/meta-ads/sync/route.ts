@@ -3,11 +3,14 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { syncMetaAdsData } from "@/lib/sync/meta-ads-sync";
 
-export async function POST() {
+export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const url = new URL(req.url);
+  const backfill = url.searchParams.get("backfill") === "true";
 
   try {
     const connections = await prisma.metaAdsConnection.findMany({
@@ -25,7 +28,7 @@ export async function POST() {
     const results = [];
     for (const connection of connections) {
       try {
-        await syncMetaAdsData(connection.id);
+        await syncMetaAdsData(connection.id, { backfill });
         results.push({
           id: connection.id,
           account: connection.accountName || connection.adAccountId,
