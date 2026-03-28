@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createMetaAdsClient } from "@/lib/meta-ads/client";
+import type { MetaApiResponse } from "@/lib/meta-ads/types";
 
 const RATE_LIMIT_DELAY_MS = 500;
 const DEFAULT_SYNC_DAYS = 30;
@@ -125,6 +126,51 @@ export async function syncMetaAdsData(
     });
 
     await delay(RATE_LIMIT_DELAY_MS);
+  }
+
+  // Sync ads
+  type MetaAdResponse = {
+    id: string;
+    name: string;
+    status: string;
+    adset_id: string;
+    effective_status: string;
+    creative?: { id: string };
+  };
+
+  try {
+    const adsResponse = await client.request<MetaApiResponse<MetaAdResponse>>(
+      `/act_${adAccountId}/ads?fields=id,name,status,adset_id,creative,effective_status&limit=100`
+    );
+
+    for (const ad of adsResponse.data) {
+      // Find parent ad set to get the campaign
+      const parentAdGroup = await prisma.adGroup.findFirst({
+        where: { externalId: ad.adset_id },
+      });
+      if (!parentAdGroup) continue;
+
+      await prisma.ad.upsert({
+        where: { externalId: ad.id },
+        update: {
+          name: ad.name,
+          status: (statusMap[ad.status] || "DRAFT") as any,
+          adGroupId: parentAdGroup.id,
+        },
+        create: {
+          campaignId: parentAdGroup.campaignId,
+          adGroupId: parentAdGroup.id,
+          externalId: ad.id,
+          name: ad.name,
+          type: "IMAGE" as any,
+          status: (statusMap[ad.status] || "DRAFT") as any,
+        },
+      });
+
+      await delay(RATE_LIMIT_DELAY_MS);
+    }
+  } catch (err) {
+    console.error("Meta ads sync failed:", err);
   }
 
   // Determine sync window

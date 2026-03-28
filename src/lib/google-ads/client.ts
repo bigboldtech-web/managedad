@@ -1,5 +1,6 @@
 import { refreshAccessToken } from "./oauth";
 import { prisma } from "@/lib/prisma";
+import { decryptToken } from "@/lib/encryption";
 
 const API_VERSION = "v19";
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`;
@@ -323,8 +324,8 @@ export async function createGoogleAdsClient(connectionId: string) {
   return new GoogleAdsClient({
     customerId: connection.customerId,
     developerToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-    accessToken: connection.accessToken || "",
-    refreshToken: connection.refreshToken,
+    accessToken: decryptToken(connection.accessToken || ""),
+    refreshToken: decryptToken(connection.refreshToken),
     connectionId: connection.id,
     managerAccountId: connection.managerAccountId || undefined,
   });

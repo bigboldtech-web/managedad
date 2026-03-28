@@ -1,321 +1,298 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Check, CreditCard, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Suspense, useState } from "react";
+import { Check, Zap, Crown, Building2, Loader2 } from "lucide-react";
 
-type Plan = "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
+const S = {
+  card: { background: "#111114", border: "1px solid #27272e", borderRadius: "12px" },
+};
 
-interface SubscriptionInfo {
-  plan: Plan;
-  status: string;
-  currentPeriodEnd: string | null;
-  cancelAtPeriodEnd: boolean;
-}
-
-const PLANS: {
-  name: Plan;
-  price: string;
-  description: string;
-  features: string[];
-}[] = [
+const PLANS = [
   {
-    name: "FREE",
-    price: "$0",
-    description: "Get started with basic features",
-    features: [
-      "1 ad platform connection",
-      "Up to 5 campaigns",
-      "7-day data retention",
-      "Basic analytics",
-    ],
-  },
-  {
-    name: "STARTER",
-    price: "$29",
-    description: "For growing businesses",
+    key: "STARTER",
+    name: "Starter",
+    price: "₹2,999",
+    priceMonthly: 2999,
+    period: "/month",
+    description: "Perfect for growing businesses managing 1-2 ad accounts.",
+    icon: Zap,
+    color: "#fb923c",
     features: [
       "2 ad platform connections",
       "Up to 25 campaigns",
-      "30-day data retention",
-      "Advanced analytics",
-      "Weekly optimization suggestions",
+      "Negative keyword mining",
+      "Budget optimization",
+      "Daily performance digest",
+      "7-day rollback history",
       "Email support",
     ],
+    cta: "Start Free Trial",
+    popular: false,
+    current: false,
   },
   {
-    name: "PROFESSIONAL",
-    price: "$99",
-    description: "For scaling teams",
+    key: "GROWTH",
+    name: "Growth",
+    price: "₹7,999",
+    priceMonthly: 7999,
+    period: "/month",
+    description: "For scaling teams that need full AI automation.",
+    icon: Crown,
+    color: "#f97316",
     features: [
-      "Unlimited ad connections",
+      "All Starter features",
+      "4 ad platform connections",
       "Unlimited campaigns",
-      "90-day data retention",
-      "AI-powered optimization",
-      "Auto-apply optimizations",
-      "City campaign generator",
+      "Click fraud detection",
+      "Creative fatigue monitoring",
+      "AI chat interface",
+      "Competitor intelligence",
+      "Slack + WhatsApp alerts",
+      "Weekly PDF reports",
+      "30-day rollback history",
       "Priority support",
     ],
+    cta: "Start Free Trial",
+    popular: true,
+    current: true,
   },
   {
-    name: "ENTERPRISE",
-    price: "$299",
-    description: "For large organizations",
+    key: "AGENCY",
+    name: "Agency",
+    price: "₹19,999",
+    priceMonthly: 19999,
+    period: "/month",
+    description: "For agencies managing multiple client accounts.",
+    icon: Building2,
+    color: "#a78bfa",
     features: [
-      "Everything in Professional",
-      "365-day data retention",
-      "Custom optimization rules",
+      "All Growth features",
+      "Unlimited ad accounts",
+      "Multi-client management",
+      "Cross-platform budget shift",
+      "White-label reports",
+      "Landing page builder",
+      "REST API access",
+      "Custom domain reports",
+      "90-day rollback history",
       "Dedicated account manager",
-      "API access",
-      "SSO/SAML support",
-      "Custom integrations",
     ],
+    cta: "Contact Sales",
+    popular: false,
+    current: false,
   },
 ];
 
-export default function BillingPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-      <BillingContent />
-    </Suspense>
-  );
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 }
 
 function BillingContent() {
-  const searchParams = useSearchParams();
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState<string | null>(null);
-  const [managingBilling, setManagingBilling] = useState(false);
+  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
+  const [loading, setLoading] = useState<string | null>(null);
 
-  const success = searchParams.get("success");
-  const canceled = searchParams.get("canceled");
-
-  useEffect(() => {
-    async function fetchSubscription() {
-      try {
-        const res = await fetch("/api/billing/checkout", { method: "GET" });
-        if (res.ok) {
-          const data = await res.json();
-          setSubscription(data);
-        } else {
-          setSubscription({ plan: "FREE", status: "ACTIVE", currentPeriodEnd: null, cancelAtPeriodEnd: false });
-        }
-      } catch {
-        setSubscription({ plan: "FREE", status: "ACTIVE", currentPeriodEnd: null, cancelAtPeriodEnd: false });
-      }
-      setLoading(false);
+  async function handleSubscribe(planKey: string) {
+    if (planKey === "AGENCY") {
+      window.open("mailto:sales@managedad.io?subject=Agency Plan Inquiry", "_blank");
+      return;
     }
 
-    fetchSubscription();
-  }, []);
-
-  const currentPlan = subscription?.plan ?? "FREE";
-
-  async function handleUpgrade(plan: Plan) {
-    setUpgrading(plan);
+    setLoading(planKey);
     try {
-      const res = await fetch("/api/billing/checkout", {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        alert("Failed to load payment gateway. Please try again.");
+        return;
+      }
+
+      const res = await fetch("/api/billing/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan: planKey, billing }),
       });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error("Failed to create checkout session:", error);
-    }
-    setUpgrading(null);
-  }
 
-  async function handleManageBilling() {
-    setManagingBilling(true);
-    try {
-      const res = await fetch("/api/billing/portal", { method: "POST" });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error("Failed to open billing portal:", error);
-    }
-    setManagingBilling(false);
-  }
+      if (!res.ok) throw new Error("Failed to create order");
+      const order = await res.json();
 
-  if (loading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: "ManagedAd",
+        description: `${order.planName} Plan — ${billing === "annual" ? "Annual" : "Monthly"}`,
+        order_id: order.orderId,
+        prefill: order.prefill,
+        theme: { color: "#f97316" },
+        handler: async (response: any) => {
+          const verifyRes = await fetch("/api/billing/razorpay/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              plan: planKey,
+              billing,
+            }),
+          });
+          if (verifyRes.ok) {
+            window.location.href = "/billing?success=true";
+          } else {
+            alert("Payment verification failed. Please contact support.");
+          }
+        },
+        modal: { ondismiss: () => setLoading(null) },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoading(null);
+    }
   }
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Billing</h1>
-        <p className="text-muted-foreground">
-          Manage your subscription and billing details.
-        </p>
+        <h1 style={{ fontFamily: '"Sora", sans-serif', fontSize: "22px", fontWeight: 800, color: "#fafafa", letterSpacing: "-0.5px", marginBottom: "3px" }}>Billing</h1>
+        <p style={{ fontSize: "13px", color: "#52525b" }}>Choose the plan that fits your business. Cancel anytime.</p>
       </div>
 
-      {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
-          Your subscription has been updated successfully.
+      {/* Current plan banner */}
+      <div style={{ padding: "16px 20px", background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+        <Crown size={16} color="#f97316" />
+        <div>
+          <span style={{ fontSize: "13.5px", fontWeight: 600, color: "#fafafa" }}>You&apos;re on the Growth plan</span>
+          <span style={{ fontSize: "12.5px", color: "#71717a", marginLeft: "8px" }}>Trial ends in 7 days</span>
         </div>
-      )}
+        <button onClick={() => handleSubscribe("GROWTH")} style={{ marginLeft: "auto", padding: "7px 16px", background: "#f97316", border: "none", borderRadius: "7px", color: "#fff", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" }}>
+          Upgrade Now
+        </button>
+      </div>
 
-      {canceled && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
-          Checkout was canceled. No changes were made.
-        </div>
-      )}
-
-      {/* Current Plan */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Current Plan
-          </CardTitle>
-          <CardDescription>
-            Your current subscription details
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-lg font-semibold">{currentPlan}</span>
-            <Badge
-              variant={subscription?.status === "ACTIVE" ? "default" : "secondary"}
-              className={
-                subscription?.status === "ACTIVE"
-                  ? "bg-green-100 text-green-800"
-                  : ""
-              }
-            >
-              {subscription?.status ?? "ACTIVE"}
-            </Badge>
-            {subscription?.cancelAtPeriodEnd && (
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                Cancels at period end
-              </Badge>
-            )}
-          </div>
-          {subscription?.currentPeriodEnd && (
-            <p className="text-sm text-muted-foreground">
-              Current period ends:{" "}
-              {new Date(subscription.currentPeriodEnd).toLocaleDateString(
-                "en-US",
-                { year: "numeric", month: "long", day: "numeric" }
-              )}
-            </p>
-          )}
-          {currentPlan !== "FREE" && (
-            <Button
-              variant="outline"
-              onClick={handleManageBilling}
-              disabled={managingBilling}
-            >
-              {managingBilling && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Manage Subscription
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      {/* Billing toggle */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", justifyContent: "center" }}>
+        <span style={{ fontSize: "13px", color: billing === "monthly" ? "#fafafa" : "#52525b", fontWeight: billing === "monthly" ? 600 : 400 }}>Monthly</span>
+        <button onClick={() => setBilling(billing === "monthly" ? "annual" : "monthly")} style={{ width: "46px", height: "26px", borderRadius: "13px", border: "none", cursor: "pointer", background: billing === "annual" ? "#f97316" : "#27272e", position: "relative", transition: "background 0.2s" }}>
+          <span style={{ position: "absolute", top: "3px", left: billing === "annual" ? "23px" : "3px", width: "20px", height: "20px", borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+        </button>
+        <span style={{ fontSize: "13px", color: billing === "annual" ? "#fafafa" : "#52525b", fontWeight: billing === "annual" ? 600 : 400 }}>Annual</span>
+        {billing === "annual" && <span style={{ padding: "2px 8px", borderRadius: "4px", fontSize: "10.5px", fontWeight: 700, background: "rgba(52,211,153,0.12)", color: "#34d399" }}>SAVE 20%</span>}
+      </div>
 
       {/* Plans */}
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Available Plans</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {PLANS.map((plan) => {
-            const isCurrentPlan = plan.name === currentPlan;
-            const planIndex = PLANS.findIndex((p) => p.name === plan.name);
-            const currentIndex = PLANS.findIndex(
-              (p) => p.name === currentPlan
-            );
-            const isDowngrade = planIndex < currentIndex;
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+        {PLANS.map((plan) => {
+          const displayPrice = billing === "annual"
+            ? `₹${Math.round(plan.priceMonthly * 0.8).toLocaleString("en-IN")}`
+            : plan.price;
+          const isLoading = loading === plan.key;
 
-            return (
-              <Card
-                key={plan.name}
-                className={isCurrentPlan ? "border-primary" : ""}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    {plan.name}
-                    {isCurrentPlan && (
-                      <Badge className="bg-primary text-primary-foreground">
-                        Current
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>{plan.description}</CardDescription>
-                  <div className="pt-2">
-                    <span className="text-3xl font-bold">{plan.price}</span>
-                    {plan.name !== "FREE" && (
-                      <span className="text-muted-foreground">/month</span>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-                        <span className="text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  {isCurrentPlan ? (
-                    <Button className="w-full" disabled>
-                      Current Plan
-                    </Button>
-                  ) : plan.name === "FREE" ? (
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={handleManageBilling}
-                      disabled={currentPlan === "FREE"}
-                    >
-                      {currentPlan === "FREE" ? "Current Plan" : "Downgrade"}
-                    </Button>
-                  ) : (
-                    <Button
-                      className="w-full"
-                      variant={isDowngrade ? "outline" : "default"}
-                      onClick={() => handleUpgrade(plan.name)}
-                      disabled={upgrading === plan.name}
-                    >
-                      {upgrading === plan.name && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                      {isDowngrade ? "Downgrade" : "Upgrade"}
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
+          return (
+            <div key={plan.name} style={{
+              ...S.card,
+              position: "relative",
+              borderColor: plan.popular ? "rgba(249,115,22,0.5)" : "#27272e",
+              background: plan.popular ? "rgba(249,115,22,0.03)" : "#111114",
+            }}>
+              {plan.popular && (
+                <div style={{ position: "absolute", top: "-1px", left: "50%", transform: "translateX(-50%)", padding: "4px 14px", background: "#f97316", borderRadius: "0 0 8px 8px", fontSize: "10px", fontWeight: 700, color: "#fff", letterSpacing: "0.5px" }}>
+                  MOST POPULAR
+                </div>
+              )}
+              {plan.current && (
+                <div style={{ position: "absolute", top: "14px", right: "14px", padding: "2px 8px", background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: "4px", fontSize: "9.5px", fontWeight: 700, color: "#34d399" }}>CURRENT</div>
+              )}
+              <div style={{ padding: "24px 22px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <plan.icon size={16} color={plan.color} />
+                  <span style={{ fontFamily: '"Sora", sans-serif', fontSize: "15px", fontWeight: 700, color: "#fafafa" }}>{plan.name}</span>
+                </div>
+                <div style={{ marginBottom: "4px" }}>
+                  <span style={{ fontFamily: '"Sora", sans-serif', fontSize: "28px", fontWeight: 800, color: plan.color }}>{displayPrice}</span>
+                  <span style={{ fontSize: "13px", color: "#52525b" }}>/month</span>
+                </div>
+                {billing === "annual" && <div style={{ fontSize: "11px", color: "#3f3f46", marginBottom: "12px" }}>billed annually</div>}
+                <div style={{ fontSize: "12.5px", color: "#52525b", marginBottom: "20px", lineHeight: 1.5 }}>{plan.description}</div>
+
+                <div style={{ height: "1px", background: "#1f1f25", marginBottom: "18px" }} />
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "9px", marginBottom: "22px" }}>
+                  {plan.features.map(f => (
+                    <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                      <Check size={12} color="#34d399" style={{ marginTop: "2px", flexShrink: 0 }} />
+                      <span style={{ fontSize: "12.5px", color: "#a1a1aa", lineHeight: 1.4 }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => !plan.current && handleSubscribe(plan.key)}
+                  disabled={plan.current || isLoading}
+                  style={{
+                    width: "100%", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                    background: plan.current ? "transparent" : plan.popular ? "#f97316" : "transparent",
+                    border: `1px solid ${plan.current ? "#27272e" : plan.popular ? "#f97316" : "#27272e"}`,
+                    borderRadius: "8px",
+                    color: plan.current ? "#71717a" : plan.popular ? "#fff" : "#a1a1aa",
+                    fontSize: "13px", fontWeight: 600, cursor: plan.current ? "default" : "pointer",
+                    opacity: isLoading ? 0.7 : 1,
+                  }}>
+                  {isLoading && <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />}
+                  {plan.current ? "Current Plan" : plan.cta}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Usage */}
+      <div style={{ ...S.card, padding: "22px 24px" }}>
+        <div style={{ fontFamily: '"Sora", sans-serif', fontSize: "14px", fontWeight: 700, color: "#fafafa", marginBottom: "16px" }}>Current Usage</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
+          {[
+            { label: "Ad Accounts", used: 2, limit: 4 },
+            { label: "Active Campaigns", used: 6, limit: "Unlimited" },
+            { label: "Automation Actions", used: 847, limit: "Unlimited" },
+          ].map(u => (
+            <div key={u.label}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                <span style={{ fontSize: "12.5px", color: "#71717a" }}>{u.label}</span>
+                <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#fafafa", fontFamily: "var(--font-ibm-plex-mono), monospace" }}>
+                  {u.used}{typeof u.limit === "number" ? ` / ${u.limit}` : " / ∞"}
+                </span>
+              </div>
+              {typeof u.limit === "number" && (
+                <div style={{ height: "4px", background: "#1f1f25", borderRadius: "2px" }}>
+                  <div style={{ height: "100%", width: `${(u.used / u.limit) * 100}%`, background: "#f97316", borderRadius: "2px" }} />
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
+}
+
+export default function BillingPage() {
+  return <Suspense fallback={null}><BillingContent /></Suspense>;
 }

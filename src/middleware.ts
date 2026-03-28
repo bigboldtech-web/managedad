@@ -13,8 +13,15 @@ export default auth((req) => {
     nextUrl.pathname.startsWith("/google-ads") ||
     nextUrl.pathname.startsWith("/meta-ads") ||
     nextUrl.pathname.startsWith("/optimization") ||
-    nextUrl.pathname.startsWith("/city-campaigns") ||
+    nextUrl.pathname.startsWith("/automations") ||
     nextUrl.pathname.startsWith("/analytics") ||
+    nextUrl.pathname.startsWith("/creatives") ||
+    nextUrl.pathname.startsWith("/chat") ||
+    nextUrl.pathname.startsWith("/fraud") ||
+    nextUrl.pathname.startsWith("/competitors") ||
+    nextUrl.pathname.startsWith("/landing-pages") ||
+    nextUrl.pathname.startsWith("/keywords") ||
+    nextUrl.pathname.startsWith("/city-campaigns") ||
     nextUrl.pathname.startsWith("/billing") ||
     nextUrl.pathname.startsWith("/settings");
   const isAdminPage = nextUrl.pathname.startsWith("/admin");
@@ -46,8 +53,18 @@ export const config = {
     "/google-ads/:path*",
     "/meta-ads/:path*",
     "/optimization/:path*",
-    "/city-campaigns/:path*",
+    "/automations/:path*",
+    "/automations",
     "/analytics/:path*",
+    "/creatives/:path*",
+    "/creatives",
+    "/chat",
+    "/fraud",
+    "/competitors",
+    "/landing-pages",
+    "/landing-pages/:path*",
+    "/keywords",
+    "/city-campaigns/:path*",
     "/billing/:path*",
     "/settings/:path*",
     "/admin/:path*",

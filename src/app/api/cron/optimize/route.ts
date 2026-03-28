@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runOptimization } from "@/lib/optimization/engine";
+import { sendOptimizationAlertEmail } from "@/lib/email";
+import { notifyOptimizationActions } from "@/lib/notifications";
 
 export async function POST(req: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -48,12 +50,41 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        await runOptimization(setting.userId);
+        const run = await runOptimization(setting.userId);
         results.success++;
-        results.details.push({
-          userId: setting.userId,
-          status: "success",
-        });
+        results.details.push({ userId: setting.userId, status: "success" });
+
+        // Fire all notification channels if actions were generated
+        if (run?.totalActions > 0) {
+          const user = await prisma.user.findUnique({
+            where: { id: setting.userId },
+            select: { email: true, name: true },
+          });
+
+          if (user?.email) {
+            const actionSummary = Object.entries(run.actionsByType).map(
+              ([actionType, count]) => ({
+                actionType,
+                description: `${count} action${count !== 1 ? "s" : ""} of this type`,
+              })
+            );
+            sendOptimizationAlertEmail(
+              user.email,
+              user.name ?? "there",
+              run.totalActions,
+              actionSummary
+            ).catch(() => {});
+          }
+
+          // Slack + WhatsApp
+          notifyOptimizationActions({
+            userId: setting.userId,
+            userName: user?.name ?? "there",
+            totalActions: run.totalActions,
+            actionsByType: run.actionsByType,
+            campaignsAnalyzed: run.campaignsAnalyzed,
+          }).catch(() => {});
+        }
       } catch (error) {
         console.error(
           `Optimization failed for user ${setting.userId}:`,

@@ -2,186 +2,129 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock } from "lucide-react";
 
-interface OptimizationActionItem {
-  id: string;
-  actionType: string;
-  description: string;
-  status: string;
-  campaign: { name: string; platform: string } | null;
-  createdAt: string;
+const S = {
+  card: { background: "#111114", border: "1px solid #27272e", borderRadius: "12px" },
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  INCREASE_BUDGET: "Increase Budget", DECREASE_BUDGET: "Decrease Budget",
+  PAUSE_AD: "Pause Ad", ENABLE_AD: "Enable Ad", PAUSE_KEYWORD: "Pause Keyword",
+  ADD_NEGATIVE_KEYWORD: "Add Negative Keyword", ADJUST_BID: "Adjust Bid",
+  CREATE_AD_VARIATION: "Create Variation", SUGGEST_AB_TEST: "A/B Test",
+};
+
+const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  COMPLETED: { bg: "rgba(52,211,153,0.1)", color: "#34d399" },
+  APPLIED:   { bg: "rgba(52,211,153,0.1)", color: "#34d399" },
+  APPROVED:  { bg: "rgba(52,211,153,0.1)", color: "#34d399" },
+  FAILED:    { bg: "rgba(248,113,113,0.1)", color: "#f87171" },
+  REJECTED:  { bg: "rgba(248,113,113,0.1)", color: "#f87171" },
+  RUNNING:   { bg: "rgba(66,133,244,0.1)",  color: "#4285F4" },
+  PENDING:   { bg: "rgba(251,191,36,0.1)",  color: "#fbbf24" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const st = STATUS_STYLE[status] || { bg: "rgba(113,113,122,0.1)", color: "#71717a" };
+  return (
+    <span style={{ padding: "2px 8px", borderRadius: "5px", fontSize: "10.5px", fontWeight: 700, background: st.bg, color: st.color }}>
+      {status}
+    </span>
+  );
 }
 
+interface OptimizationActionItem {
+  id: string; actionType: string; description: string; status: string;
+  campaign: { name: string; platform: string } | null; createdAt: string;
+}
 interface OptimizationRun {
-  id: string;
-  triggerType: string;
-  status: string;
-  startedAt: string | null;
-  completedAt: string | null;
-  summary: Record<string, unknown> | null;
-  createdAt: string;
+  id: string; triggerType: string; status: string; createdAt: string;
+  completedAt: string | null; summary: Record<string, unknown> | null;
   actions: OptimizationActionItem[];
 }
 
 export default function OptimizationHistoryPage() {
   const [runs, setRuns] = useState<OptimizationRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedRun, setExpandedRun] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchHistory() {
-      try {
-        const res = await fetch("/api/optimization/history");
-        if (res.ok) setRuns(await res.json());
-      } catch {
-        // empty state
-      }
-      setLoading(false);
-    }
-    fetchHistory();
+    fetch("/api/optimization/history")
+      .then(r => r.ok ? r.json() : [])
+      .then(setRuns)
+      .finally(() => setLoading(false));
   }, []);
 
-  const actionTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      INCREASE_BUDGET: "Increase Budget",
-      DECREASE_BUDGET: "Decrease Budget",
-      PAUSE_AD: "Pause Ad",
-      ENABLE_AD: "Enable Ad",
-      PAUSE_KEYWORD: "Pause Keyword",
-      ADD_NEGATIVE_KEYWORD: "Add Negative Keyword",
-      ADJUST_BID: "Adjust Bid",
-      CREATE_AD_VARIATION: "Create Variation",
-      SUGGEST_AB_TEST: "A/B Test",
-    };
-    return labels[type] || type;
-  };
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "COMPLETED":
-      case "APPLIED":
-      case "APPROVED":
-        return "bg-green-100 text-green-800";
-      case "FAILED":
-      case "REJECTED":
-        return "bg-red-100 text-red-800";
-      case "RUNNING":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "";
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/optimization">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <Link href="/optimization" style={{ width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", background: "#111114", border: "1px solid #27272e", borderRadius: "8px", color: "#71717a", textDecoration: "none", flexShrink: 0 }}>
+          <ArrowLeft size={14} />
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Optimization History</h1>
-          <p className="text-muted-foreground">
-            Past optimization runs and their actions.
-          </p>
+          <h1 style={{ fontFamily: '"Sora", sans-serif', fontSize: "22px", fontWeight: 800, color: "#fafafa", letterSpacing: "-0.5px", marginBottom: "2px" }}>Optimization History</h1>
+          <p style={{ fontSize: "13px", color: "#52525b" }}>Past optimization runs and their actions.</p>
         </div>
       </div>
 
       {loading ? (
-        <p className="py-8 text-center text-muted-foreground">Loading...</p>
+        <div style={{ padding: "40px", textAlign: "center", color: "#3f3f46", fontSize: "13px" }}>Loading...</div>
       ) : runs.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <h3 className="text-lg font-semibold">No optimization runs yet</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Run the optimization engine from the optimization dashboard.
-            </p>
-            <Link href="/optimization">
-              <Button className="mt-4">Go to Optimization</Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <div style={{ ...S.card, padding: "48px", textAlign: "center" }}>
+          <div style={{ fontSize: "15px", fontWeight: 600, color: "#fafafa", marginBottom: "8px" }}>No optimization runs yet</div>
+          <div style={{ fontSize: "13px", color: "#52525b", marginBottom: "16px" }}>Run the optimization engine from the optimization dashboard.</div>
+          <Link href="/optimization" style={{ padding: "8px 16px", background: "#f97316", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}>Go to Optimization</Link>
+        </div>
       ) : (
-        <div className="space-y-4">
-          {runs.map((run) => (
-            <Card key={run.id}>
-              <CardHeader
-                className="cursor-pointer"
-                onClick={() =>
-                  setExpandedRun(expandedRun === run.id ? null : run.id)
-                }
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {expandedRun === run.id ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                    <div>
-                      <CardTitle className="text-base">
-                        Optimization Run
-                      </CardTitle>
-                      <CardDescription>
-                        {new Date(run.createdAt).toLocaleString()} &middot;{" "}
-                        {run.triggerType} &middot; {run.actions.length} actions
-                      </CardDescription>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {runs.map(run => (
+            <div key={run.id} style={S.card}>
+              <div onClick={() => setExpanded(expanded === run.id ? null : run.id)}
+                style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {expanded === run.id ? <ChevronDown size={14} color="#52525b" /> : <ChevronRight size={14} color="#52525b" />}
+                  <div>
+                    <div style={{ fontSize: "13.5px", fontWeight: 600, color: "#fafafa" }}>Optimization Run</div>
+                    <div style={{ fontSize: "11.5px", color: "#52525b", marginTop: "2px" }}>
+                      {new Date(run.createdAt).toLocaleString("en-IN")} · {run.triggerType} · {run.actions.length} action{run.actions.length !== 1 ? "s" : ""}
                     </div>
                   </div>
-                  <Badge className={statusColor(run.status)}>
-                    {run.status}
-                  </Badge>
                 </div>
-              </CardHeader>
-              {expandedRun === run.id && (
-                <CardContent>
+                <StatusBadge status={run.status} />
+              </div>
+
+              {expanded === run.id && (
+                <div style={{ borderTop: "1px solid #1a1a1f", padding: "12px 20px 16px" }}>
                   {run.actions.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-muted-foreground">
-                      No actions generated in this run.
-                    </p>
+                    <div style={{ padding: "20px", textAlign: "center", color: "#3f3f46", fontSize: "12.5px" }}>No actions generated in this run.</div>
                   ) : (
-                    <div className="space-y-2">
-                      {run.actions.map((action) => (
-                        <div
-                          key={action.id}
-                          className="flex items-start justify-between rounded border p-3"
-                        >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">
-                                {actionTypeLabel(action.actionType)}
-                              </Badge>
-                              <Badge className={statusColor(action.status)}>
-                                {action.status}
-                              </Badge>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {run.actions.map(action => (
+                        <div key={action.id} style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "10px 12px", background: "#0d0d10", borderRadius: "8px" }}>
+                          {action.status === "APPLIED" || action.status === "COMPLETED" ? <CheckCircle size={13} color="#34d399" style={{ marginTop: "1px", flexShrink: 0 }} /> :
+                           action.status === "FAILED" ? <XCircle size={13} color="#f87171" style={{ marginTop: "1px", flexShrink: 0 }} /> :
+                           <Clock size={13} color="#fbbf24" style={{ marginTop: "1px", flexShrink: 0 }} />}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px", flexWrap: "wrap" as const }}>
+                              <span style={{ padding: "2px 7px", borderRadius: "4px", fontSize: "10px", fontWeight: 700, background: "rgba(249,115,22,0.1)", color: "#fb923c" }}>
+                                {ACTION_LABELS[action.actionType] || action.actionType}
+                              </span>
+                              <StatusBadge status={action.status} />
                               {action.campaign && (
-                                <span className="text-xs text-muted-foreground">
-                                  {action.campaign.name}
-                                </span>
+                                <span style={{ fontSize: "11px", color: "#52525b" }}>{action.campaign.name}</span>
                               )}
                             </div>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {action.description}
-                            </p>
+                            <div style={{ fontSize: "12.5px", color: "#71717a" }}>{action.description}</div>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-                </CardContent>
+                </div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
       )}

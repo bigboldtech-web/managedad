@@ -23,15 +23,20 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  accounts             Account[]
-  sessions             Session[]
-  subscription         Subscription?
-  googleAdsConnections GoogleAdsConnection[]
-  metaAdsConnections   MetaAdsConnection[]
-  campaigns            Campaign[]
-  optimizationRuns     OptimizationRun[]
-  cityCampaigns        CityCampaign[]
-  optimizationSettings OptimizationSettings?
+  accounts              Account[]
+  sessions              Session[]
+  subscription          Subscription?
+  googleAdsConnections  GoogleAdsConnection[]
+  metaAdsConnections    MetaAdsConnection[]
+  campaigns             Campaign[]
+  optimizationRuns      OptimizationRun[]
+  cityCampaigns         CityCampaign[]
+  optimizationSettings  OptimizationSettings?
+  notificationSettings  NotificationSettings?
+  clickEvents           ClickEvent[]
+  fraudBlocks           FraudBlock[]
+  landingPages          LandingPage[]
+  auditReports          AuditReport[]
 }
 
 enum UserRole {
@@ -79,18 +84,20 @@ model VerificationToken {
 // ============================================================
 
 model Subscription {
-  id                   String             @id @default(cuid())
-  userId               String             @unique
-  stripeCustomerId     String             @unique
-  stripeSubscriptionId String?            @unique
-  stripePriceId        String?
-  plan                 SubscriptionPlan   @default(FREE)
-  status               SubscriptionStatus @default(ACTIVE)
-  currentPeriodStart   DateTime?
-  currentPeriodEnd     DateTime?
-  cancelAtPeriodEnd    Boolean            @default(false)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  id                      String             @id @default(cuid())
+  userId                  String             @unique
+  plan                    SubscriptionPlan   @default(FREE)
+  status                  SubscriptionStatus @default(ACTIVE)
+  billingCycle            String?
+  currentPeriodStart      DateTime?
+  currentPeriodEnd        DateTime?
+  cancelAtPeriodEnd       Boolean            @default(false)
+  // Razorpay
+  razorpayOrderId         String?
+  razorpayPaymentId       String?
+  razorpaySubscriptionId  String?            @unique
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -98,15 +105,14 @@ model Subscription {
 enum SubscriptionPlan {
   FREE
   STARTER
-  PROFESSIONAL
-  ENTERPRISE
+  GROWTH
+  AGENCY
 }
 
 enum SubscriptionStatus {
   ACTIVE
   PAST_DUE
-  CANCELED
-  INCOMPLETE
+  CANCELLED
   TRIALING
 }
 
@@ -406,6 +412,7 @@ enum ActionStatus {
   APPLIED
   REJECTED
   FAILED
+  ROLLED_BACK
 }
 
 // ============================================================
@@ -435,6 +442,111 @@ enum CityCampaignStatus {
   CREATING
   ACTIVE
   FAILED
+}
+
+// ============================================================
+// NOTIFICATION SETTINGS
+// ============================================================
+
+model NotificationSettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  emailEnabled      Boolean  @default(true)
+  slackEnabled      Boolean  @default(false)
+  slackWebhookUrl   String?
+  whatsappEnabled   Boolean  @default(false)
+  whatsappPhone     String?
+  dailyDigest       Boolean  @default(true)
+  weeklyReport      Boolean  @default(true)
+  fraudAlerts       Boolean  @default(true)
+  anomalyAlerts     Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// CLICK FRAUD
+// ============================================================
+
+model ClickEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  campaignId   String?
+  ip           String
+  userAgent    String?  @db.Text
+  referer      String?
+  country      String?
+  region       String?
+  city         String?
+  isBot        Boolean  @default(false)
+  isFraud      Boolean  @default(false)
+  fraudScore   Float?
+  fraudReasons Json?
+  clickedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, clickedAt])
+  @@index([ip])
+}
+
+model FraudBlock {
+  id         String    @id @default(cuid())
+  userId     String
+  ip         String
+  reason     String?
+  fraudScore Float
+  clickCount Int       @default(0)
+  savings    Decimal   @default(0) @db.Decimal(12, 2)
+  isActive   Boolean   @default(true)
+  blockedAt  DateTime  @default(now())
+  expiresAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ip])
+  @@index([userId, blockedAt])
+}
+
+// ============================================================
+// LANDING PAGES
+// ============================================================
+
+model LandingPage {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  slug        String   @unique
+  htmlContent String   @db.Text
+  prompt      String?  @db.Text
+  isPublished Boolean  @default(false)
+  visits      Int      @default(0)
+  conversions Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================================
+// AUDIT REPORTS
+// ============================================================
+
+model AuditReport {
+  id        String   @id @default(cuid())
+  userId    String
+  score     Int
+  checks    Json
+  summary   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 // ============================================================

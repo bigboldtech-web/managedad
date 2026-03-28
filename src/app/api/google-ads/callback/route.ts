@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { exchangeCodeForTokens } from "@/lib/google-ads/oauth";
 import { prisma } from "@/lib/prisma";
+import { encryptToken } from "@/lib/encryption";
 
 export async function GET(req: NextRequest) {
   const baseUrl =
@@ -20,7 +21,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeCodeForTokens(code);
+    const rawTokens = await exchangeCodeForTokens(code);
+    const tokens = {
+      ...rawTokens,
+      access_token_encrypted: encryptToken(rawTokens.access_token),
+      refresh_token_encrypted: encryptToken(rawTokens.refresh_token),
+    };
 
     // Try to fetch accessible customer accounts automatically
     let customerIds: string[] = [];
@@ -79,8 +85,8 @@ export async function GET(req: NextRequest) {
             },
           },
           update: {
-            refreshToken: tokens.refresh_token,
-            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token_encrypted,
+            accessToken: tokens.access_token_encrypted,
             tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
             isActive: true,
             ...(accountName && { accountName }),
@@ -88,8 +94,8 @@ export async function GET(req: NextRequest) {
           create: {
             userId: session.user.id,
             customerId,
-            refreshToken: tokens.refresh_token,
-            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token_encrypted,
+            accessToken: tokens.access_token_encrypted,
             tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
             ...(accountName && { accountName }),
           },
@@ -112,16 +118,16 @@ export async function GET(req: NextRequest) {
         },
       },
       update: {
-        refreshToken: tokens.refresh_token,
-        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token_encrypted,
+        accessToken: tokens.access_token_encrypted,
         tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         isActive: false,
       },
       create: {
         userId: session.user.id,
         customerId: "PENDING",
-        refreshToken: tokens.refresh_token,
-        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token_encrypted,
+        accessToken: tokens.access_token_encrypted,
         tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         isActive: false,
       },

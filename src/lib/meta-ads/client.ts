@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { decryptToken } from "@/lib/encryption";
 import type {
   MetaAdAccount,
   MetaAdSet,
@@ -315,7 +316,7 @@ export async function createMetaAdsClient(
   }
 
   return new MetaAdsClient({
-    accessToken: connection.accessToken,
+    accessToken: decryptToken(connection.accessToken),
     connectionId: connection.id,
   });
 }

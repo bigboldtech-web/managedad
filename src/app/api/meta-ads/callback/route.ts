@@ -6,6 +6,7 @@ import {
 } from "@/lib/meta-ads/oauth";
 import { MetaAdsClient } from "@/lib/meta-ads/client";
 import { prisma } from "@/lib/prisma";
+import { encryptToken } from "@/lib/encryption";
 
 export async function GET(req: NextRequest) {
   const baseUrl =
@@ -14,6 +15,17 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.redirect(new URL("/login", baseUrl));
+  }
+
+  // CSRF state validation
+  const stateParam = req.nextUrl.searchParams.get("state");
+  const stateCookie = req.cookies.get("meta_oauth_state")?.value;
+
+  if (!stateParam || !stateCookie || stateParam !== stateCookie) {
+    return NextResponse.json(
+      { error: "Invalid state parameter" },
+      { status: 403 }
+    );
   }
 
   const code = req.nextUrl.searchParams.get("code");
@@ -63,7 +75,7 @@ export async function GET(req: NextRequest) {
           },
         },
         update: {
-          accessToken: longLivedTokens.access_token,
+          accessToken: encryptToken(longLivedTokens.access_token),
           tokenExpiresAt: new Date(
             Date.now() + longLivedTokens.expires_in * 1000
           ),
@@ -74,7 +86,7 @@ export async function GET(req: NextRequest) {
         create: {
           userId: session.user.id,
           adAccountId,
-          accessToken: longLivedTokens.access_token,
+          accessToken: encryptToken(longLivedTokens.access_token),
           tokenExpiresAt: new Date(
             Date.now() + longLivedTokens.expires_in * 1000
           ),
@@ -84,13 +96,17 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.redirect(
+    const successResponse = NextResponse.redirect(
       new URL("/meta-ads?connected=true", baseUrl)
     );
+    successResponse.cookies.delete("meta_oauth_state");
+    return successResponse;
   } catch (error) {
     console.error("Meta Ads OAuth error:", error);
-    return NextResponse.redirect(
+    const errorResponse = NextResponse.redirect(
       new URL("/meta-ads?error=oauth_failed", baseUrl)
     );
+    errorResponse.cookies.delete("meta_oauth_state");
+    return errorResponse;
   }
 }

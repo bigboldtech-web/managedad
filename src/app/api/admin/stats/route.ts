@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 
 const PLAN_PRICES: Record<string, number> = {
   FREE: 0,
-  STARTER: 29,
-  PROFESSIONAL: 99,
-  ENTERPRISE: 299,
+  STARTER: 2999,
+  GROWTH: 7999,
+  AGENCY: 19999,
 };
 
 export async function GET() {
@@ -60,8 +60,8 @@ export async function GET() {
     const planCounts: Record<string, number> = {
       FREE: 0,
       STARTER: 0,
-      PROFESSIONAL: 0,
-      ENTERPRISE: 0,
+      GROWTH: 0,
+      AGENCY: 0,
     };
 
     for (const sub of subscriptions) {

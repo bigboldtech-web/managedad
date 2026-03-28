@@ -8,6 +8,8 @@ import {
   OptimizationRunSummary,
 } from "./types";
 import { ALL_RULES } from "./rules";
+import { getAIOptimizationActions } from "./ai-advisor";
+import { executeApprovedActions } from "./executor";
 
 const DEFAULT_SETTINGS: OptimizationSettings = {
   isEnabled: true,
@@ -162,15 +164,31 @@ export async function runOptimization(
     });
 
     const allActions: OptimizationAction[] = [];
+    const allAnalyses: CampaignAnalysis[] = [];
 
-    // Analyze each campaign and run all rules
+    // Analyze each campaign and run deterministic rules
     for (const campaign of campaigns) {
       const analysis = await buildCampaignAnalysis(campaign.id);
+      allAnalyses.push(analysis);
 
       for (const rule of ALL_RULES) {
         const ruleActions = rule(analysis, settings);
         allActions.push(...ruleActions);
       }
+    }
+
+    // Layer in AI advisor recommendations (non-blocking — fallback to rules-only on error)
+    try {
+      const aiActions = await getAIOptimizationActions(allAnalyses, settings);
+      // Deduplicate: skip AI action if same campaignId + actionType already in rules output
+      const ruleKeys = new Set(allActions.map((a) => `${a.campaignId}:${a.actionType}`));
+      for (const aiAction of aiActions) {
+        if (!ruleKeys.has(`${aiAction.campaignId}:${aiAction.actionType}`)) {
+          allActions.push(aiAction);
+        }
+      }
+    } catch {
+      // AI advisor failure is non-fatal — rules engine output is sufficient
     }
 
     // Store actions in the database
@@ -192,6 +210,15 @@ export async function runOptimization(
           status: settings.autoApply ? "APPROVED" as const : "PENDING" as const,
         })),
       });
+
+      // If auto-apply is on, execute approved actions immediately
+      if (settings.autoApply && allActions.length > 0) {
+        try {
+          await executeApprovedActions(userId);
+        } catch (execError) {
+          console.error("Action execution failed:", execError);
+        }
+      }
     }
 
     // Compute summary

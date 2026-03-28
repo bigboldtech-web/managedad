@@ -2,79 +2,37 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { MapPin, Plus, Loader2, Rocket } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import { MapPin, Rocket } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
-interface CityData {
-  name: string;
-  state: string;
-  population: number;
-  medianIncome: number;
-  competitionLevel: string;
-  topIndustries: string[];
-  avgCpcRange: [number, number];
-}
+const S = {
+  card: { background: "#111114", border: "1px solid #27272e", borderRadius: "12px" },
+  input: { height: "40px", padding: "0 14px", background: "#18181c", border: "1px solid #27272e", borderRadius: "8px", color: "#fafafa", fontSize: "13px", outline: "none", width: "100%", boxSizing: "border-box" as const, fontFamily: "inherit" },
+  label: { fontSize: "11px", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "1px", color: "#3f3f46" },
+};
 
+const COMPETITION_COLOR: Record<string, string> = { HIGH: "#f87171", MEDIUM: "#fbbf24", LOW: "#34d399" };
+
+const BUSINESS_TYPES = ["Restaurant", "Plumber", "Dentist", "Lawyer", "Real Estate", "Gym", "Auto Repair", "Salon", "HVAC"];
+
+interface CityData {
+  name: string; state: string; population: number; medianIncome: number;
+  competitionLevel: string; topIndustries: string[]; avgCpcRange: [number, number];
+}
 interface GeneratedConfig {
-  name: string;
-  cityName: string;
-  state: string;
-  businessType: string;
+  name: string; cityName: string; state: string; businessType: string;
   keywords: { text: string; matchType: string }[];
-  adCopy: {
-    headlines: string[];
-    descriptions: string[];
-  };
-  geoTargeting: {
-    city: string;
-    state: string;
-    country: string;
-    radiusMiles: number;
-  };
+  adCopy: { headlines: string[]; descriptions: string[] };
+  geoTargeting: { city: string; state: string; country: string; radiusMiles: number };
   suggestedBudget: { min: number; recommended: number; max: number };
   cityData: CityData;
 }
-
 interface CityCampaignRecord {
-  id: string;
-  cityName: string;
-  state: string | null;
-  businessType: string | null;
-  status: string;
-  researchData: CityData | null;
-  generatedConfig: GeneratedConfig | null;
+  id: string; cityName: string; state: string | null; businessType: string | null;
+  status: string; researchData: CityData | null; generatedConfig: GeneratedConfig | null;
   createdAt: string;
-  campaigns: {
-    id: string;
-    name: string;
-    platform: string;
-    status: string;
-    spend: number;
-  }[];
+  campaigns: { id: string; name: string; platform: string; status: string; spend: number }[];
 }
-
-const BUSINESS_TYPES = [
-  "Restaurant",
-  "Plumber",
-  "Dentist",
-  "Lawyer",
-  "Real Estate",
-  "Gym",
-  "Auto Repair",
-  "Salon",
-  "HVAC",
-];
 
 export default function CityCampaignsPage() {
   const [cityCampaigns, setCityCampaigns] = useState<CityCampaignRecord[]>([]);
@@ -82,20 +40,16 @@ export default function CityCampaignsPage() {
   const [generating, setGenerating] = useState(false);
   const [cityInput, setCityInput] = useState("");
   const [businessType, setBusinessType] = useState("");
-  const [generatedResult, setGeneratedResult] =
-    useState<CityCampaignRecord | null>(null);
+  const [generatedResult, setGeneratedResult] = useState<CityCampaignRecord | null>(null);
+  const [deploying, setDeploying] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchCityCampaigns();
-  }, []);
+  useEffect(() => { fetchCityCampaigns(); }, []);
 
   async function fetchCityCampaigns() {
     try {
       const res = await fetch("/api/city-campaigns");
       if (res.ok) setCityCampaigns(await res.json());
-    } catch {
-      // empty state
-    }
+    } catch { /* empty */ }
     setLoading(false);
   }
 
@@ -103,396 +57,246 @@ export default function CityCampaignsPage() {
     if (!cityInput.trim() || !businessType) return;
     setGenerating(true);
     setGeneratedResult(null);
-
     try {
       const res = await fetch("/api/city-campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cityName: cityInput.trim(),
-          businessType: businessType.toLowerCase(),
-        }),
+        body: JSON.stringify({ cityName: cityInput.trim(), businessType: businessType.toLowerCase() }),
       });
-
       if (res.ok) {
         const data = await res.json();
         setGeneratedResult(data);
         await fetchCityCampaigns();
       }
-    } catch {
-      // handle error
-    }
+    } catch { /* handle */ }
     setGenerating(false);
   }
 
-  async function handleDeploy(
-    cityCampaignId: string,
-    platform: "GOOGLE_ADS" | "META_ADS"
-  ) {
+  async function handleDeploy(platform: "GOOGLE_ADS" | "META_ADS") {
+    if (!generatedResult?.generatedConfig) return;
+    setDeploying(platform);
     try {
-      const result = generatedResult;
-      if (!result?.generatedConfig) return;
-
-      const config = result.generatedConfig;
-      const res = await fetch("/api/campaigns", {
+      const config = generatedResult.generatedConfig;
+      await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          platform,
-          name: config.name,
+          platform, name: config.name,
           objective: platform === "GOOGLE_ADS" ? "SEARCH" : "OUTCOME_LEADS",
           dailyBudget: config.suggestedBudget.recommended,
-          targetLocations: [
-            `${config.geoTargeting.city}, ${config.geoTargeting.state}`,
-          ],
+          targetLocations: [`${config.geoTargeting.city}, ${config.geoTargeting.state}`],
         }),
       });
-
-      if (res.ok) {
-        await fetchCityCampaigns();
-      }
-    } catch {
-      // handle error
-    }
+      await fetchCityCampaigns();
+    } catch { /* handle */ }
+    setDeploying(null);
   }
 
   const config = generatedResult?.generatedConfig;
   const research = generatedResult?.researchData || config?.cityData;
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">City Campaign Builder</h1>
-        <p className="text-muted-foreground">
-          Generate geo-targeted campaigns for specific US cities.
-        </p>
+        <h1 style={{ fontFamily: '"Sora", sans-serif', fontSize: "22px", fontWeight: 800, color: "#fafafa", letterSpacing: "-0.5px", marginBottom: "3px" }}>City Campaign Builder</h1>
+        <p style={{ fontSize: "13px", color: "#52525b" }}>Generate geo-targeted campaigns for any city. AI creates keywords, ad copy, and budget recommendations.</p>
       </div>
 
       {/* Generator Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Generate Campaign
-          </CardTitle>
-          <CardDescription>
-            Enter a city name and business type to generate a campaign
-            configuration.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1">
-              <label className="text-sm font-medium">City Name</label>
-              <Input
-                value={cityInput}
-                onChange={(e) => setCityInput(e.target.value)}
-                placeholder="e.g., Austin, Denver, Miami"
-                className="mt-1"
-              />
-            </div>
-            <div className="w-48">
-              <label className="text-sm font-medium">Business Type</label>
-              <select
-                value={businessType}
-                onChange={(e) => setBusinessType(e.target.value)}
-                className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
-              >
-                <option value="">Select type...</option>
-                {BUSINESS_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              onClick={handleGenerate}
-              disabled={generating || !cityInput.trim() || !businessType}
-              className="gap-2"
-            >
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Rocket className="h-4 w-4" />
-              )}
-              Generate
-            </Button>
+      <div style={{ ...S.card, padding: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
+          <MapPin size={15} color="#f97316" />
+          <span style={{ fontFamily: '"Sora", sans-serif', fontSize: "14px", fontWeight: 700, color: "#fafafa" }}>Generate Campaign</span>
+        </div>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <div style={{ ...S.label, marginBottom: "6px" }}>City Name</div>
+            <input value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="e.g., Mumbai, Delhi, Bangalore" style={S.input} onKeyDown={(e) => e.key === "Enter" && handleGenerate()} />
           </div>
-        </CardContent>
-      </Card>
+          <div style={{ width: "180px" }}>
+            <div style={{ ...S.label, marginBottom: "6px" }}>Business Type</div>
+            <select value={businessType} onChange={(e) => setBusinessType(e.target.value)}
+              style={{ ...S.input, appearance: "none" as const, cursor: "pointer" }}>
+              <option value="">Select type...</option>
+              {BUSINESS_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <button onClick={handleGenerate} disabled={generating || !cityInput.trim() || !businessType}
+            style={{ height: "40px", padding: "0 20px", background: (generating || !cityInput.trim() || !businessType) ? "rgba(249,115,22,0.4)" : "#f97316", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, cursor: (generating || !cityInput.trim() || !businessType) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "7px", whiteSpace: "nowrap" as const }}>
+            <Rocket size={13} /> {generating ? "Generating..." : "Generate"}
+          </button>
+        </div>
+      </div>
 
       {/* Research Data */}
       {research && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              City Research: {research.name}, {research.state}
-            </CardTitle>
-            <CardDescription>
-              Market data for campaign planning
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Population</p>
-                <p className="text-lg font-semibold">
-                  {formatNumber(research.population)}
-                </p>
+        <div style={{ ...S.card, padding: "20px 24px" }}>
+          <div style={{ fontFamily: '"Sora", sans-serif', fontSize: "14px", fontWeight: 700, color: "#fafafa", marginBottom: "4px" }}>City Research: {research.name}, {research.state}</div>
+          <div style={{ fontSize: "12px", color: "#52525b", marginBottom: "16px" }}>Market data for campaign planning</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "14px" }}>
+            {[
+              { label: "Population", value: formatNumber(research.population) },
+              { label: "Median Income", value: formatCurrency(research.medianIncome) },
+              { label: "Avg CPC Range", value: `${formatCurrency(research.avgCpcRange[0])}–${formatCurrency(research.avgCpcRange[1])}` },
+            ].map(item => (
+              <div key={item.label} style={{ background: "#0d0d10", borderRadius: "8px", padding: "12px 14px" }}>
+                <div style={{ ...S.label, marginBottom: "4px" }}>{item.label}</div>
+                <div style={{ fontSize: "16px", fontWeight: 700, color: "#fafafa" }}>{item.value}</div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Median Income</p>
-                <p className="text-lg font-semibold">
-                  {formatCurrency(research.medianIncome)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Competition</p>
-                <Badge
-                  variant={
-                    research.competitionLevel === "HIGH"
-                      ? "destructive"
-                      : research.competitionLevel === "MEDIUM"
-                        ? "default"
-                        : "secondary"
-                  }
-                >
-                  {research.competitionLevel}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Avg CPC Range</p>
-                <p className="text-lg font-semibold">
-                  {formatCurrency(research.avgCpcRange[0])} -{" "}
-                  {formatCurrency(research.avgCpcRange[1])}
-                </p>
-              </div>
+            ))}
+            <div style={{ background: "#0d0d10", borderRadius: "8px", padding: "12px 14px" }}>
+              <div style={{ ...S.label, marginBottom: "4px" }}>Competition</div>
+              <span style={{ padding: "3px 10px", borderRadius: "5px", fontSize: "11px", fontWeight: 700, background: `${COMPETITION_COLOR[research.competitionLevel] || "#3f3f46"}18`, color: COMPETITION_COLOR[research.competitionLevel] || "#71717a" }}>
+                {research.competitionLevel}
+              </span>
             </div>
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground">Top Industries</p>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {research.topIndustries.map((industry) => (
-                  <Badge key={industry} variant="outline">
-                    {industry}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div style={{ ...S.label, marginBottom: "8px" }}>Top Industries</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+            {research.topIndustries.map(i => (
+              <span key={i} style={{ padding: "3px 10px", borderRadius: "5px", fontSize: "11.5px", background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.2)", color: "#fb923c" }}>{i}</span>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Generated Campaign Config */}
+      {/* Generated Config */}
       {config && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Generated Campaign: {config.name}</CardTitle>
-            <CardDescription>
-              Review and deploy this campaign configuration.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Budget */}
-            <div>
-              <h3 className="font-medium">Suggested Budget</h3>
-              <div className="mt-2 flex gap-4">
-                <div className="rounded border p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Min</p>
-                  <p className="font-semibold">
-                    {formatCurrency(config.suggestedBudget.min)}/day
-                  </p>
+        <div style={{ ...S.card, padding: "20px 24px" }}>
+          <div style={{ fontFamily: '"Sora", sans-serif', fontSize: "14px", fontWeight: 700, color: "#fafafa", marginBottom: "4px" }}>Generated: {config.name}</div>
+          <div style={{ fontSize: "12px", color: "#52525b", marginBottom: "20px" }}>Review the configuration before deploying to your ad platforms.</div>
+
+          {/* Budget */}
+          <div style={{ marginBottom: "20px" }}>
+            <div style={{ ...S.label, marginBottom: "10px" }}>Suggested Daily Budget</div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              {[
+                { label: "Min", value: formatCurrency(config.suggestedBudget.min), highlight: false },
+                { label: "Recommended", value: formatCurrency(config.suggestedBudget.recommended), highlight: true },
+                { label: "Max", value: formatCurrency(config.suggestedBudget.max), highlight: false },
+              ].map(b => (
+                <div key={b.label} style={{ flex: 1, padding: "12px", background: b.highlight ? "rgba(249,115,22,0.06)" : "#0d0d10", border: `1px solid ${b.highlight ? "rgba(249,115,22,0.3)" : "#1a1a1f"}`, borderRadius: "8px", textAlign: "center" }}>
+                  <div style={{ ...S.label, marginBottom: "4px" }}>{b.label}</div>
+                  <div style={{ fontSize: b.highlight ? "18px" : "15px", fontWeight: 700, color: b.highlight ? "#f97316" : "#fafafa" }}>{b.value}/day</div>
                 </div>
-                <div className="rounded border-2 border-primary bg-primary/5 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Recommended</p>
-                  <p className="text-lg font-bold">
-                    {formatCurrency(config.suggestedBudget.recommended)}/day
-                  </p>
-                </div>
-                <div className="rounded border p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Max</p>
-                  <p className="font-semibold">
-                    {formatCurrency(config.suggestedBudget.max)}/day
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
+          </div>
 
-            <Separator />
+          <div style={{ height: "1px", background: "#1a1a1f", margin: "16px 0" }} />
 
-            {/* Keywords */}
-            <div>
-              <h3 className="font-medium">
-                Keywords ({config.keywords.length})
-              </h3>
-              <div className="mt-2 max-h-48 overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="pb-2 font-medium text-muted-foreground">
-                        Keyword
-                      </th>
-                      <th className="pb-2 font-medium text-muted-foreground">
-                        Match Type
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {config.keywords.map((kw, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-1.5">{kw.text}</td>
-                        <td className="py-1.5">
-                          <Badge variant="outline">{kw.matchType}</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Ad Copy */}
-            <div>
-              <h3 className="font-medium">Ad Copy</h3>
-              <div className="mt-2 space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Headlines</p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {config.adCopy.headlines.map((h, i) => (
-                      <Badge key={i} variant="secondary">
-                        {h}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Descriptions</p>
-                  <div className="mt-1 space-y-1">
-                    {config.adCopy.descriptions.map((d, i) => (
-                      <p key={i} className="text-sm">
-                        {d}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Geo Targeting */}
-            <div>
-              <h3 className="font-medium">Geo Targeting</h3>
-              <p className="mt-1 text-sm">
-                {config.geoTargeting.city}, {config.geoTargeting.state} -
-                {config.geoTargeting.radiusMiles} mile radius
-              </p>
-            </div>
-
-            <Separator />
-
-            {/* Deploy Buttons */}
-            <div className="flex gap-3">
-              <Button
-                onClick={() => handleDeploy(generatedResult!.id, "GOOGLE_ADS")}
-                className="gap-2"
-              >
-                <Rocket className="h-4 w-4" />
-                Deploy to Google Ads
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleDeploy(generatedResult!.id, "META_ADS")}
-                className="gap-2"
-              >
-                <Rocket className="h-4 w-4" />
-                Deploy to Meta Ads
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Existing City Campaigns */}
-      <Card>
-        <CardHeader>
-          <CardTitle>City Campaigns</CardTitle>
-          <CardDescription>
-            Previously generated city campaign configurations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="py-8 text-center text-muted-foreground">
-              Loading...
-            </p>
-          ) : cityCampaigns.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              No city campaigns yet. Generate one above.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+          {/* Keywords */}
+          <div style={{ marginBottom: "20px" }}>
+            <div style={{ ...S.label, marginBottom: "10px" }}>Keywords ({config.keywords.length})</div>
+            <div style={{ maxHeight: "180px", overflowY: "auto", background: "#0d0d10", borderRadius: "8px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
                 <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-3 font-medium text-muted-foreground">
-                      City
-                    </th>
-                    <th className="pb-3 font-medium text-muted-foreground">
-                      Business Type
-                    </th>
-                    <th className="pb-3 font-medium text-muted-foreground">
-                      Status
-                    </th>
-                    <th className="pb-3 font-medium text-muted-foreground">
-                      Campaigns
-                    </th>
-                    <th className="pb-3 font-medium text-muted-foreground">
-                      Created
-                    </th>
+                  <tr style={{ borderBottom: "1px solid #1a1a1f" }}>
+                    <th style={{ padding: "8px 14px", textAlign: "left", ...S.label }}>Keyword</th>
+                    <th style={{ padding: "8px 14px", textAlign: "left", ...S.label }}>Match</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cityCampaigns.map((cc) => (
-                    <tr key={cc.id} className="border-b last:border-0">
-                      <td className="py-3">
-                        <Link
-                          href={`/city-campaigns/${cc.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {cc.cityName}
-                          {cc.state ? `, ${cc.state}` : ""}
-                        </Link>
-                      </td>
-                      <td className="py-3">{cc.businessType || "-"}</td>
-                      <td className="py-3">
-                        <Badge
-                          variant={
-                            cc.status === "ACTIVE" ? "default" : "secondary"
-                          }
-                          className={
-                            cc.status === "ACTIVE"
-                              ? "bg-green-100 text-green-800"
-                              : ""
-                          }
-                        >
-                          {cc.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3">{cc.campaigns.length}</td>
-                      <td className="py-3 text-muted-foreground">
-                        {new Date(cc.createdAt).toLocaleDateString()}
+                  {config.keywords.map((kw, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid #1a1a1f" }}>
+                      <td style={{ padding: "7px 14px", color: "#a1a1aa" }}>{kw.text}</td>
+                      <td style={{ padding: "7px 14px" }}>
+                        <span style={{ padding: "2px 7px", borderRadius: "4px", fontSize: "10px", fontWeight: 700, background: "rgba(249,115,22,0.08)", color: "#fb923c" }}>{kw.matchType}</span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+
+          <div style={{ height: "1px", background: "#1a1a1f", margin: "16px 0" }} />
+
+          {/* Ad Copy */}
+          <div style={{ marginBottom: "20px" }}>
+            <div style={{ ...S.label, marginBottom: "10px" }}>Ad Copy</div>
+            <div style={{ marginBottom: "12px" }}>
+              <div style={{ fontSize: "11.5px", color: "#52525b", marginBottom: "8px" }}>Headlines</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {config.adCopy.headlines.map((h, i) => (
+                  <span key={i} style={{ padding: "3px 10px", borderRadius: "5px", fontSize: "12px", background: "#18181c", border: "1px solid #27272e", color: "#a1a1aa" }}>{h}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: "11.5px", color: "#52525b", marginBottom: "8px" }}>Descriptions</div>
+              {config.adCopy.descriptions.map((d, i) => (
+                <div key={i} style={{ fontSize: "12.5px", color: "#71717a", marginBottom: "4px", paddingLeft: "10px", borderLeft: "2px solid #27272e" }}>{d}</div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ height: "1px", background: "#1a1a1f", margin: "16px 0" }} />
+
+          {/* Geo */}
+          <div style={{ marginBottom: "20px" }}>
+            <div style={{ ...S.label, marginBottom: "6px" }}>Geo Targeting</div>
+            <div style={{ fontSize: "13px", color: "#a1a1aa" }}>
+              {config.geoTargeting.city}, {config.geoTargeting.state} · {config.geoTargeting.radiusMiles} mile radius
+            </div>
+          </div>
+
+          {/* Deploy Buttons */}
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={() => handleDeploy("GOOGLE_ADS")} disabled={deploying === "GOOGLE_ADS"}
+              style={{ padding: "9px 18px", background: deploying === "GOOGLE_ADS" ? "rgba(66,133,244,0.4)" : "rgba(66,133,244,0.1)", border: "1px solid rgba(66,133,244,0.4)", borderRadius: "8px", color: "#4285F4", fontSize: "13px", fontWeight: 600, cursor: deploying === "GOOGLE_ADS" ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
+              <Rocket size={13} /> {deploying === "GOOGLE_ADS" ? "Deploying..." : "Deploy to Google Ads"}
+            </button>
+            <button onClick={() => handleDeploy("META_ADS")} disabled={deploying === "META_ADS"}
+              style={{ padding: "9px 18px", background: deploying === "META_ADS" ? "rgba(24,119,242,0.4)" : "rgba(24,119,242,0.1)", border: "1px solid rgba(24,119,242,0.4)", borderRadius: "8px", color: "#1877F2", fontSize: "13px", fontWeight: 600, cursor: deploying === "META_ADS" ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
+              <Rocket size={13} /> {deploying === "META_ADS" ? "Deploying..." : "Deploy to Meta Ads"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Existing City Campaigns */}
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272e" }}>
+          <span style={{ fontFamily: '"Sora", sans-serif', fontSize: "14px", fontWeight: 700, color: "#fafafa" }}>City Campaigns</span>
+          <span style={{ fontSize: "11px", color: "#3f3f46", marginLeft: "8px" }}>Previously generated configurations</span>
+        </div>
+        {loading ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#3f3f46", fontSize: "13px" }}>Loading...</div>
+        ) : cityCampaigns.length === 0 ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#3f3f46", fontSize: "13px" }}>No city campaigns yet. Generate one above.</div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #1a1a1f" }}>
+                {["City", "Business Type", "Status", "Campaigns", "Created"].map(h => (
+                  <th key={h} style={{ padding: "10px 20px", textAlign: "left", fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", color: "#3f3f46" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {cityCampaigns.map((cc) => (
+                <tr key={cc.id} style={{ borderBottom: "1px solid #1a1a1f" }}>
+                  <td style={{ padding: "12px 20px" }}>
+                    <Link href={`/city-campaigns/${cc.id}`} style={{ color: "#fafafa", fontWeight: 500, textDecoration: "none" }}>
+                      {cc.cityName}{cc.state ? `, ${cc.state}` : ""}
+                    </Link>
+                  </td>
+                  <td style={{ padding: "12px 20px", color: "#71717a" }}>{cc.businessType || "—"}</td>
+                  <td style={{ padding: "12px 20px" }}>
+                    <span style={{ padding: "2px 8px", borderRadius: "5px", fontSize: "10.5px", fontWeight: 700, background: cc.status === "ACTIVE" ? "rgba(52,211,153,0.1)" : "rgba(113,113,122,0.1)", color: cc.status === "ACTIVE" ? "#34d399" : "#71717a" }}>
+                      {cc.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px 20px", color: "#71717a" }}>{cc.campaigns.length}</td>
+                  <td style={{ padding: "12px 20px", color: "#52525b" }}>{new Date(cc.createdAt).toLocaleDateString("en-IN")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

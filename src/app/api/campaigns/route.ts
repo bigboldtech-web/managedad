@@ -201,7 +201,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const updated = await prisma.campaign.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: {
         ...(body.status && { status: body.status }),
         ...(body.name && { name: body.name }),

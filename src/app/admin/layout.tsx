@@ -11,11 +11,11 @@ export default function AdminLayout({
 }) {
   return (
     <Providers>
-      <div className="flex h-screen overflow-hidden">
+      <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#0a0a0d" }}>
         <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div style={{ display: "flex", flex: 1, flexDirection: "column", overflow: "hidden" }}>
           <Topbar />
-          <main className="flex-1 overflow-y-auto bg-muted/30 p-6">
+          <main style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
             {children}
           </main>
         </div>

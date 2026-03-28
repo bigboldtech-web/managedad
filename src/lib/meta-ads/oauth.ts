@@ -1,6 +1,6 @@
 const META_LOGIN_CONFIG_ID = "1481589483494263";
 
-export function getMetaAuthUrl(): string {
+export function getMetaAuthUrl(state: string): string {
   const clientId = process.env.META_APP_ID!;
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/meta-ads/callback`;
 
@@ -9,7 +9,7 @@ export function getMetaAuthUrl(): string {
     redirect_uri: redirectUri,
     config_id: META_LOGIN_CONFIG_ID,
     response_type: "code",
-    state: crypto.randomUUID(),
+    state,
   });
 
   return `https://www.facebook.com/v22.0/dialog/oauth?${params}`;
