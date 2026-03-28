@@ -344,41 +344,68 @@ export default function FeaturesPage() {
                 </ul>
               </div>
 
-              {/* Visual side */}
+              {/* Visual side — mini UI mockup */}
               <div
                 style={{
                   direction: "ltr",
                   background: "#111114",
                   border: "1px solid #27272e",
                   borderRadius: 16,
-                  padding: 40,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  padding: 24,
                   minHeight: 320,
                   position: "relative",
                   overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: 200,
-                    height: 200,
-                    background:
-                      "radial-gradient(circle, rgba(249,115,22,0.08) 0%, transparent 70%)",
-                    pointerEvents: "none",
-                  }}
-                />
-                <Icon
-                  size={80}
-                  color="#27272e"
-                  strokeWidth={1}
-                  style={{ opacity: 0.6 }}
-                />
+                {/* Glow */}
+                <div style={{ position: "absolute", top: "-30%", right: "-20%", width: 300, height: 300, background: "radial-gradient(circle, rgba(249,115,22,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+                {/* Mock header bar */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#0d0d10", borderRadius: 10, border: "1px solid #1a1a1f" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Icon size={16} color="#f97316" />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#fafafa" }}>{feature.name}</span>
+                  </div>
+                  <span style={{ fontSize: 10, color: "#34d399", fontWeight: 600 }}>● Live</span>
+                </div>
+
+                {/* Mock metric cards */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  {[
+                    { label: "Processed", value: index === 0 ? "1,245" : index === 1 ? "847" : index === 2 ? "₹2.4L" : index === 3 ? "183" : index === 4 ? "52" : index === 5 ? "92/100" : index === 6 ? "Daily" : index === 7 ? "1.2K" : index === 8 ? "24" : "12", color: "#fafafa" },
+                    { label: "Actions", value: index === 0 ? "6 KPIs" : index === 1 ? "+142" : index === 2 ? "+32%" : index === 3 ? "Blocked" : index === 4 ? "RSAs" : index === 5 ? "7 Checks" : index === 6 ? "3 Channels" : index === 7 ? "Queries" : index === 8 ? "Domains" : "Pages", color: "#f97316" },
+                    { label: "Impact", value: index === 0 ? "4.2x" : index === 1 ? "₹18K" : index === 2 ? "₹45K" : index === 3 ? "₹40K" : index === 4 ? "+38%" : index === 5 ? "Pass" : index === 6 ? "On Time" : index === 7 ? "Instant" : index === 8 ? "Alert" : "3.2%", color: "#34d399" },
+                  ].map((stat) => (
+                    <div key={stat.label} style={{ padding: "10px 12px", background: "#0d0d10", borderRadius: 8, border: "1px solid #1a1a1f" }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#3f3f46", marginBottom: 4 }}>{stat.label}</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: stat.color, fontFamily: "var(--font-ibm-plex-mono), monospace" }}>{stat.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Mock table/list */}
+                <div style={{ flex: 1, background: "#0d0d10", borderRadius: 10, border: "1px solid #1a1a1f", overflow: "hidden" }}>
+                  {feature.bullets.slice(0, 3).map((bullet, bi) => (
+                    <div key={bi} style={{ padding: "10px 14px", borderBottom: bi < 2 ? "1px solid #1a1a1f" : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: bi === 0 ? "#34d399" : bi === 1 ? "#f97316" : "#fbbf24" }} />
+                        <span style={{ fontSize: 11.5, color: "#a1a1aa", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bullet}</span>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: bi === 0 ? "#34d399" : "#52525b", padding: "2px 6px", background: bi === 0 ? "rgba(52,211,153,0.08)" : "transparent", borderRadius: 4 }}>
+                        {bi === 0 ? "Active" : bi === 1 ? "Ready" : "Queued"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Mock action bar */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", background: "rgba(249,115,22,0.04)", border: "1px solid rgba(249,115,22,0.15)", borderRadius: 8 }}>
+                  <span style={{ fontSize: 11, color: "#fb923c" }}>AI recommendation available</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "#f97316", padding: "4px 10px", borderRadius: 5 }}>Apply</span>
+                </div>
               </div>
             </div>
 

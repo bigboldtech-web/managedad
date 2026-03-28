@@ -15,50 +15,77 @@ const NAV_LINKS = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const navRef = useRef<HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      navRef.current?.classList.toggle("mkt-nav--scrolled", window.scrollY > 20);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   return (
-    <nav ref={navRef} className="mkt-nav">
-      <div className="mkt-nav__inner">
-        <Link href="/" className="mkt-nav__logo">
-          Managed<span>Ad</span>
+    <nav
+      style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+        padding: "0 24px",
+        transition: "background 0.3s, border-color 0.3s",
+        background: scrolled ? "rgba(9,9,11,0.85)" : "transparent",
+        backdropFilter: scrolled ? "blur(20px)" : "none",
+        WebkitBackdropFilter: scrolled ? "blur(20px)" : "none",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1200, margin: "0 auto", display: "flex",
+          alignItems: "center", justifyContent: "space-between", height: 64,
+          borderBottom: scrolled ? "1px solid #27272e" : "1px solid transparent",
+        }}
+      >
+        <Link href="/" style={{ fontFamily: '"Sora", sans-serif', fontWeight: 700, fontSize: 20, letterSpacing: -0.5, color: "#fafafa", textDecoration: "none" }}>
+          Managed<span style={{ color: "#fb923c" }}>Ad</span>
         </Link>
 
         {/* Desktop links */}
-        <div className="mkt-nav__links">
+        <div className="mkt-desktop-links" style={{ display: "flex", alignItems: "center", gap: 32 }}>
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`mkt-nav__link ${pathname === link.href ? "mkt-nav__link--active" : ""}`}
+              style={{
+                color: pathname === link.href ? "#fafafa" : "#a1a1aa",
+                textDecoration: "none", fontSize: 14, fontWeight: 500,
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#fafafa")}
+              onMouseLeave={(e) => { if (pathname !== link.href) e.currentTarget.style.color = "#a1a1aa"; }}
             >
               {link.label}
             </Link>
           ))}
-          <Link href="/register" className="mkt-nav__cta">
+          <Link
+            href="/register"
+            style={{
+              display: "inline-flex", alignItems: "center", height: 38, padding: "0 20px",
+              background: "#f97316", border: "none", borderRadius: 8,
+              color: "#fff", fontSize: 13, fontWeight: 600,
+              textDecoration: "none", cursor: "pointer", transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#fb923c"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "#f97316"; e.currentTarget.style.transform = "none"; }}
+          >
             Get started
           </Link>
         </div>
 
         {/* Mobile hamburger */}
         <button
-          className="mkt-nav__hamburger"
+          className="mkt-hamburger"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          style={{ display: "none", background: "none", border: "none", color: "#fafafa", cursor: "pointer", padding: 4 }}
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -66,143 +93,43 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="mkt-nav__mobile">
+        <div className="mkt-mobile-menu" style={{
+          flexDirection: "column", gap: 4, padding: "16px 24px 24px",
+          background: "rgba(9,9,11,0.95)", backdropFilter: "blur(20px)",
+          borderBottom: "1px solid #27272e",
+        }}>
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`mkt-nav__mobile-link ${pathname === link.href ? "mkt-nav__link--active" : ""}`}
+              style={{
+                display: "block", padding: "12px 0",
+                color: pathname === link.href ? "#fafafa" : "#a1a1aa",
+                textDecoration: "none", fontSize: 15, fontWeight: 500,
+                borderBottom: "1px solid #1f1f25",
+              }}
             >
               {link.label}
             </Link>
           ))}
-          <Link href="/register" className="mkt-nav__cta mkt-nav__cta--mobile">
+          <Link
+            href="/register"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              height: 44, marginTop: 12, background: "#f97316", borderRadius: 8,
+              color: "#fff", fontSize: 15, fontWeight: 600, textDecoration: "none",
+            }}
+          >
             Get started
           </Link>
         </div>
       )}
 
-      <style jsx>{`
-        .mkt-nav {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 100;
-          padding: 0 24px;
-          transition: background 0.3s;
-        }
-        .mkt-nav--scrolled {
-          background: rgba(9, 9, 11, 0.85);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-        }
-        .mkt-nav__inner {
-          max-width: 1200px;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          height: 64px;
-          border-bottom: 1px solid transparent;
-        }
-        .mkt-nav--scrolled .mkt-nav__inner {
-          border-bottom-color: #27272e;
-        }
-        .mkt-nav__logo {
-          font-family: "Sora", sans-serif;
-          font-weight: 700;
-          font-size: 20px;
-          letter-spacing: -0.5px;
-          color: #fafafa;
-          text-decoration: none;
-        }
-        .mkt-nav__logo span {
-          color: #fb923c;
-        }
-        .mkt-nav__links {
-          display: flex;
-          align-items: center;
-          gap: 32px;
-        }
-        .mkt-nav__link {
-          color: #a1a1aa;
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 500;
-          transition: color 0.2s;
-        }
-        .mkt-nav__link:hover,
-        .mkt-nav__link--active {
-          color: #fafafa;
-        }
-        .mkt-nav__cta {
-          display: inline-flex;
-          align-items: center;
-          height: 38px;
-          padding: 0 20px;
-          background: #f97316;
-          border: none;
-          border-radius: 8px;
-          color: #fff;
-          font-size: 13px;
-          font-weight: 600;
-          text-decoration: none;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .mkt-nav__cta:hover {
-          background: #fb923c;
-          transform: translateY(-1px);
-        }
-        .mkt-nav__hamburger {
-          display: none;
-          background: none;
-          border: none;
-          color: #fafafa;
-          cursor: pointer;
-          padding: 4px;
-        }
-        .mkt-nav__mobile {
-          display: none;
-          flex-direction: column;
-          gap: 4px;
-          padding: 16px 24px 24px;
-          background: rgba(9, 9, 11, 0.95);
-          backdrop-filter: blur(20px);
-          border-bottom: 1px solid #27272e;
-        }
-        .mkt-nav__mobile-link {
-          display: block;
-          padding: 12px 0;
-          color: #a1a1aa;
-          text-decoration: none;
-          font-size: 15px;
-          font-weight: 500;
-          transition: color 0.2s;
-          border-bottom: 1px solid #1f1f25;
-        }
-        .mkt-nav__mobile-link:hover,
-        .mkt-nav__mobile-link.mkt-nav__link--active {
-          color: #fafafa;
-        }
-        .mkt-nav__cta--mobile {
-          margin-top: 12px;
-          justify-content: center;
-          height: 44px;
-          font-size: 15px;
-        }
-
+      <style>{`
         @media (max-width: 768px) {
-          .mkt-nav__links {
-            display: none;
-          }
-          .mkt-nav__hamburger {
-            display: block;
-          }
-          .mkt-nav__mobile {
-            display: flex;
-          }
+          .mkt-desktop-links { display: none !important; }
+          .mkt-hamburger { display: block !important; }
+          .mkt-mobile-menu { display: flex !important; }
         }
       `}</style>
     </nav>
