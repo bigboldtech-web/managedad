@@ -10,6 +10,7 @@ const PRODUCT_LINKS = [
 const RESOURCE_LINKS = [
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
+  { label: "Documentation", href: "/docs" },
   { label: "Help Center", href: "/help" },
 ];
 
