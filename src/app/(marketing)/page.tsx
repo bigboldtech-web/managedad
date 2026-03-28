@@ -1,21 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
-import "./landing.css";
+import "../landing.css";
 
 export default function LandingPage() {
-  const navRef = useRef<HTMLElement>(null);
-
   useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-
-    const handleScroll = () => {
-      nav.classList.toggle("scrolled", window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-
     // Scroll reveal
     const obs = new IntersectionObserver(
       (entries) => {
@@ -30,30 +20,11 @@ export default function LandingPage() {
     );
     document.querySelectorAll(".landing .reveal").forEach((el) => obs.observe(el));
 
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      obs.disconnect();
-    };
+    return () => { obs.disconnect(); };
   }, []);
 
   return (
     <div className="landing">
-      {/* ===== NAV ===== */}
-      <nav className="nav" ref={navRef}>
-        <div className="nav-inner">
-          <div className="nav-logo">
-            Managed<span>Ad</span>
-          </div>
-          <div className="nav-links">
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#how">How it works</a>
-            <Link href="/register">
-              <button className="nav-cta">Get started</button>
-            </Link>
-          </div>
-        </div>
-      </nav>
 
       {/* ===== HERO ===== */}
       <section className="hero">
@@ -1003,50 +974,6 @@ export default function LandingPage() {
           <button className="btn btn-ghost">Book a demo</button>
         </div>
       </section>
-
-      {/* ===== FOOTER ===== */}
-      <footer className="l-footer">
-        <div className="footer-inner">
-          <div className="footer-top">
-            <div className="footer-brand">
-              <div className="f-logo">
-                Managed<span>Ad</span>
-              </div>
-              <p>
-                AI-powered ad management that replaces performance marketers.
-                Built for businesses, agencies, and D2C brands.
-              </p>
-            </div>
-            <div className="footer-col">
-              <h6>Product</h6>
-              <a href="#features">Features</a>
-              <a href="#pricing">Pricing</a>
-              <a href="#">Integrations</a>
-              <a href="#">API Docs</a>
-              <a href="#">Changelog</a>
-            </div>
-            <div className="footer-col">
-              <h6>Resources</h6>
-              <a href="#">Blog</a>
-              <a href="#">Case Studies</a>
-              <a href="#">Help Center</a>
-              <a href="#">Community</a>
-            </div>
-            <div className="footer-col">
-              <h6>Company</h6>
-              <a href="#">About</a>
-              <a href="#">Careers</a>
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
-              <a href="#">Contact</a>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <span>&copy; 2026 ManagedAd. All rights reserved.</span>
-            <span>Built with AI, for the AI era.</span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

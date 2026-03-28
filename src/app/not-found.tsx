@@ -30,11 +30,11 @@ export default function NotFound() {
         </p>
 
         <Link
-          href="/dashboard"
+          href="/"
           className="inline-block w-full py-2.5 rounded-lg font-medium text-sm text-white"
           style={{ background: "#f97316" }}
         >
-          Go to Dashboard
+          Go to Homepage
         </Link>
       </div>
     </div>

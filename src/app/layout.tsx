@@ -11,9 +11,35 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ManagedAd — AI that manages your ads",
+  metadataBase: new URL("https://managedad.com"),
+  title: {
+    default: "ManagedAd — AI-Powered Ad Management Platform",
+    template: "%s | ManagedAd",
+  },
   description:
     "Automate 90% of your paid advertising. AI agents handle Google Ads, Meta, LinkedIn & TikTok — optimizing bids, killing waste, and scaling winners autonomously.",
+  keywords: [
+    "AI ad management", "Google Ads automation", "Meta Ads optimization",
+    "performance marketing SaaS", "negative keyword mining", "click fraud detection",
+    "ROAS optimization", "ad budget optimization", "India ad management",
+  ],
+  authors: [{ name: "ManagedAd", url: "https://managedad.com" }],
+  creator: "Big Bold Technologies",
+  openGraph: {
+    type: "website",
+    locale: "en_IN",
+    url: "https://managedad.com",
+    siteName: "ManagedAd",
+    title: "ManagedAd — AI-Powered Ad Management Platform",
+    description: "Automate 90% of your paid advertising. AI agents handle Google Ads and Meta — optimizing bids, killing waste, and scaling winners autonomously.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ManagedAd — AI-Powered Ad Management",
+    description: "Automate 90% of your paid advertising with autonomous AI optimization.",
+  },
+  robots: { index: true, follow: true },
+  alternates: { canonical: "https://managedad.com" },
 };
 
 export default function RootLayout({

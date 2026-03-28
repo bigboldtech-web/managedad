@@ -1,0 +1,155 @@
+/* ===== MARKETING SHARED STYLES ===== */
+
+/* --- CSS Custom Properties --- */
+:root {
+  --mkt-bg: #09090b;
+  --mkt-bg2: #111114;
+  --mkt-bg3: #18181c;
+  --mkt-bg4: #1f1f25;
+  --mkt-border: #27272e;
+  --mkt-border-light: #35353e;
+  --mkt-text: #fafafa;
+  --mkt-text-2: #a1a1aa;
+  --mkt-text-3: #71717a;
+  --mkt-accent: #f97316;
+  --mkt-accent2: #fb923c;
+  --mkt-accent3: #fdba74;
+  --mkt-green: #34d399;
+  --mkt-green-bg: rgba(52, 211, 153, 0.08);
+  --mkt-red: #f87171;
+  --mkt-red-bg: rgba(248, 113, 113, 0.08);
+  --mkt-yellow: #fbbf24;
+  --mkt-radius: 16px;
+  --mkt-radius-sm: 10px;
+  --mkt-radius-xs: 6px;
+}
+
+/* --- Container --- */
+.m-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* --- Section --- */
+.m-section {
+  padding: 96px 24px;
+}
+
+.m-section-head {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.m-section-head h1,
+.m-section-head h2 {
+  font-family: "Sora", sans-serif;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
+  color: var(--mkt-text);
+  margin: 0 0 16px;
+}
+
+.m-section-head h1 {
+  font-size: clamp(36px, 5vw, 60px);
+}
+
+.m-section-head h2 {
+  font-size: clamp(28px, 4vw, 48px);
+}
+
+.m-section-head p {
+  font-size: clamp(15px, 1.3vw, 18px);
+  color: var(--mkt-text-2);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* --- Tag / Badge --- */
+.m-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--mkt-accent2);
+  margin-bottom: 12px;
+}
+
+/* --- Buttons --- */
+.m-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 28px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-decoration: none;
+  border: none;
+}
+
+.m-btn-primary {
+  background: var(--mkt-accent);
+  color: #fff;
+}
+
+.m-btn-primary:hover {
+  background: var(--mkt-accent2);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(249, 115, 22, 0.3);
+}
+
+.m-btn-ghost {
+  background: transparent;
+  color: var(--mkt-text);
+  border: 1px solid var(--mkt-border);
+}
+
+.m-btn-ghost:hover {
+  border-color: var(--mkt-border-light);
+  background: var(--mkt-bg2);
+}
+
+/* --- Gradient text helper --- */
+.m-gradient-text {
+  background: linear-gradient(135deg, var(--mkt-accent) 0%, var(--mkt-accent3) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* --- Card --- */
+.m-card {
+  background: var(--mkt-bg2);
+  border: 1px solid var(--mkt-border);
+  border-radius: var(--mkt-radius);
+  padding: 32px;
+  transition: border-color 0.3s;
+}
+
+.m-card:hover {
+  border-color: var(--mkt-border-light);
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  .m-section {
+    padding: 64px 24px;
+  }
+  .m-section-head {
+    margin-bottom: 40px;
+  }
+}
+
+@media (max-width: 500px) {
+  .m-section {
+    padding: 48px 16px;
+  }
+}
