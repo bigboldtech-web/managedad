@@ -17,31 +17,12 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    // Use native form submission — only way cookies work reliably behind reverse proxy
-    const csrfRes = await fetch("/api/auth/csrf");
-    const { csrfToken } = await csrfRes.json();
-
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/api/auth/callback/credentials";
-
-    const fields: Record<string, string> = {
+    // Use signIn with redirect:true — let next-auth handle everything
+    signIn("credentials", {
       email,
       password,
-      csrfToken,
       callbackUrl: "/dashboard",
-    };
-
-    for (const [key, value] of Object.entries(fields)) {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = key;
-      input.value = value;
-      form.appendChild(input);
-    }
-
-    document.body.appendChild(form);
-    form.submit();
+    });
   }
 
   return (
