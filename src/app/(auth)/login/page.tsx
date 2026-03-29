@@ -18,26 +18,33 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Get CSRF token first
-      const csrfRes = await fetch("/api/auth/csrf");
+      // Get CSRF token
+      const csrfRes = await fetch("/api/auth/csrf", { credentials: "include" });
       const { csrfToken } = await csrfRes.json();
 
-      // Submit via hidden form (browser handles cookies natively)
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "/api/auth/callback/credentials";
-      form.style.display = "none";
+      // Login via fetch with credentials
+      const res = await fetch("/api/auth/callback/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        credentials: "include",
+        body: new URLSearchParams({
+          email,
+          password,
+          csrfToken,
+          callbackUrl: window.location.origin + "/dashboard",
+        }),
+        redirect: "follow",
+      });
 
-      const fields = { email, password, csrfToken, callbackUrl: window.location.origin + "/dashboard" };
-      for (const [key, value] of Object.entries(fields)) {
-        const input = document.createElement("input");
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
+      // Check if we got redirected to an error page
+      if (res.url.includes("error") || res.url.includes("login")) {
+        setError("Invalid email or password");
+        setLoading(false);
+        return;
       }
 
-      document.body.appendChild(form);
-      form.submit();
+      // Cookie should be set now — do a hard redirect
+      window.location.href = "/dashboard";
     } catch {
       setError("Connection error. Please try again.");
       setLoading(false);
