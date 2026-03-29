@@ -28,7 +28,7 @@ export default function LoginPage() {
       form.action = "/api/auth/callback/credentials";
       form.style.display = "none";
 
-      const fields = { email, password, csrfToken, callbackUrl: "/dashboard" };
+      const fields = { email, password, csrfToken, callbackUrl: window.location.origin + "/dashboard" };
       for (const [key, value] of Object.entries(fields)) {
         const input = document.createElement("input");
         input.name = key;
