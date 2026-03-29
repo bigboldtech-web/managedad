@@ -18,20 +18,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
+      const res = await fetch("/api/auth/callback/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          email,
+          password,
+          csrfToken: await fetch("/api/auth/csrf").then(r => r.json()).then(d => d.csrfToken),
+        }),
+        redirect: "manual",
       });
 
-      if (result?.error) {
-        setError("Invalid email or password");
-        setLoading(false);
-      } else if (result?.ok) {
-        // Use hard redirect to ensure cookie is sent on next request
+      if (res.status === 302 || res.status === 200) {
         window.location.href = "/dashboard";
       } else {
-        setError("Something went wrong. Please try again.");
+        setError("Invalid email or password");
         setLoading(false);
       }
     } catch {
