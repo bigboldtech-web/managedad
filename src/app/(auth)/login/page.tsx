@@ -18,23 +18,26 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/auth/callback/credentials", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          email,
-          password,
-          csrfToken: await fetch("/api/auth/csrf").then(r => r.json()).then(d => d.csrfToken),
-        }),
-        redirect: "manual",
-      });
+      // Get CSRF token first
+      const csrfRes = await fetch("/api/auth/csrf");
+      const { csrfToken } = await csrfRes.json();
 
-      if (res.status === 302 || res.status === 200) {
-        window.location.href = "/dashboard";
-      } else {
-        setError("Invalid email or password");
-        setLoading(false);
+      // Submit via hidden form (browser handles cookies natively)
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "/api/auth/callback/credentials";
+      form.style.display = "none";
+
+      const fields = { email, password, csrfToken, callbackUrl: "/dashboard" };
+      for (const [key, value] of Object.entries(fields)) {
+        const input = document.createElement("input");
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
       }
+
+      document.body.appendChild(form);
+      form.submit();
     } catch {
       setError("Connection error. Please try again.");
       setLoading(false);
