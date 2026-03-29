@@ -18,28 +18,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Get CSRF token
-      const csrfRes = await fetch("/api/auth/csrf", { credentials: "include" });
-      const { csrfToken } = await csrfRes.json();
-
-      // Login via fetch with credentials
-      const res = await fetch("/api/auth/callback/credentials", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        credentials: "include",
-        body: new URLSearchParams({
-          email,
-          password,
-          csrfToken,
-          callbackUrl: window.location.origin + "/dashboard",
-        }),
-        redirect: "follow",
+      await signIn("credentials", {
+        email,
+        password,
+        redirectTo: "/dashboard",
       });
-
-      // Cookie should be set now — do a hard redirect regardless of response
-      window.location.href = "/dashboard";
     } catch {
-      setError("Connection error. Please try again.");
+      setError("Invalid email or password");
       setLoading(false);
     }
   }
