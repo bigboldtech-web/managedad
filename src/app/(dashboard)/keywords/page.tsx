@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Plus, TrendingUp, TrendingDown, AlertCircle, Sparkles, X, Check, Loader2, CheckSquare, Square } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { NegativeSuggestion } from "@/app/api/keywords/mine-negatives/route";
@@ -11,24 +11,14 @@ const S = {
   th: { padding: "10px 14px", fontSize: "10px", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "1px", color: "#3f3f46", borderBottom: "1px solid #27272e" },
 };
 
-const DEMO_KEYWORDS = [
-  { id: "1", text: "buy laptop online india", matchType: "EXACT", campaign: "Brand Awareness", status: "ACTIVE", impressions: 24800, clicks: 1840, spend: 52000, conversions: 87, cpa: 598, cpc: 28.3, qualityScore: 9, trend: "up" },
-  { id: "2", text: "best laptop under 50000", matchType: "PHRASE", campaign: "Product Launch Q2", status: "ACTIVE", impressions: 18200, clicks: 1120, spend: 38000, conversions: 62, cpa: 613, cpc: 33.9, qualityScore: 7, trend: "up" },
-  { id: "3", text: "gaming laptop india", matchType: "BROAD", campaign: "Brand Awareness", status: "ACTIVE", impressions: 31400, clicks: 890, spend: 29000, conversions: 21, cpa: 1381, cpc: 32.6, qualityScore: 5, trend: "down" },
-  { id: "4", text: "laptop emi no interest", matchType: "EXACT", campaign: "Product Launch Q2", status: "ACTIVE", impressions: 8900, clicks: 620, spend: 17000, conversions: 48, cpa: 354, cpc: 27.4, qualityScore: 8, trend: "up" },
-  { id: "5", text: "laptop price comparison", matchType: "PHRASE", campaign: "Search — Competitors", status: "PAUSED", impressions: 12400, clicks: 310, spend: 12000, conversions: 8, cpa: 1500, cpc: 38.7, qualityScore: 4, trend: "down" },
-  { id: "6", text: "second hand laptop", matchType: "BROAD", campaign: "Brand Awareness", status: "ACTIVE", impressions: 7200, clicks: 280, spend: 8400, conversions: 2, cpa: 4200, cpc: 30.0, qualityScore: 3, trend: "down" },
-  { id: "7", text: "laptop repair near me", matchType: "BROAD", campaign: "Brand Awareness", status: "ACTIVE", impressions: 4100, clicks: 190, spend: 5700, conversions: 0, cpa: 0, cpc: 30.0, qualityScore: 2, trend: "down" },
-  { id: "8", text: "dell laptop official site", matchType: "EXACT", campaign: "Search — Competitors", status: "ACTIVE", impressions: 6800, clicks: 520, spend: 15600, conversions: 31, cpa: 503, cpc: 30.0, qualityScore: 6, trend: "stable" },
-];
-
-const DEMO_NEGATIVES = [
-  { text: "laptop repair free", matchType: "EXACT", addedBy: "AI", addedAt: "2 hr ago", savings: "₹1,240/mo" },
-  { text: "laptop jobs hiring", matchType: "EXACT", addedBy: "AI", addedAt: "3 hr ago", savings: "₹840/mo" },
-  { text: "laptop price quora", matchType: "PHRASE", addedBy: "AI", addedAt: "1 day ago", savings: "₹720/mo" },
-  { text: "laptop tutorial youtube", matchType: "PHRASE", addedBy: "MANUAL", addedAt: "2 days ago", savings: "₹480/mo" },
-  { text: "how to fix laptop", matchType: "BROAD", addedBy: "AI", addedAt: "3 days ago", savings: "₹390/mo" },
-];
+interface Keyword {
+  id: string; text: string; matchType: string; campaign: string; status: string;
+  impressions: number; clicks: number; spend: number; conversions: number;
+  cpa: number; cpc: number; qualityScore: number; trend: string;
+}
+interface Negative {
+  text: string; matchType: string; addedBy: string; addedAt: string; savings: string;
+}
 
 const matchTypeColor: Record<string, { bg: string; color: string }> = {
   EXACT: { bg: "rgba(52,211,153,0.08)", color: "#34d399" },
@@ -39,6 +29,22 @@ const matchTypeColor: Record<string, { bg: string; color: string }> = {
 export default function KeywordsPage() {
   const [tab, setTab] = useState<"active" | "negatives">("active");
   const [search, setSearch] = useState("");
+  const [keywords, setKeywords] = useState<Keyword[]>([]);
+  const [negatives, setNegatives] = useState<Negative[]>([]);
+
+  useEffect(() => {
+    async function fetchKeywords() {
+      try {
+        const res = await fetch("/api/keywords");
+        if (res.ok) {
+          const data = await res.json();
+          setKeywords(data.keywords ?? []);
+          setNegatives(data.negatives ?? []);
+        }
+      } catch {}
+    }
+    fetchKeywords();
+  }, []);
 
   // Mining state
   const [miningOpen, setMiningOpen] = useState(false);
@@ -50,8 +56,8 @@ export default function KeywordsPage() {
   const [applying, setApplying] = useState(false);
   const [applyResult, setApplyResult] = useState<{ applied: number; failed: number } | null>(null);
 
-  const filtered = DEMO_KEYWORDS.filter(k => k.text.toLowerCase().includes(search.toLowerCase()));
-  const issues = DEMO_KEYWORDS.filter(k => k.qualityScore < 5 || (k.conversions === 0 && k.spend > 5000));
+  const filtered = keywords.filter(k => k.text.toLowerCase().includes(search.toLowerCase()));
+  const issues = keywords.filter(k => k.qualityScore < 5 || (k.conversions === 0 && k.spend > 5000));
 
   async function handleMineNegatives() {
     setMiningOpen(true);
@@ -151,11 +157,11 @@ export default function KeywordsPage() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px" }}>
         {[
-          { label: "Active Keywords", value: String(DEMO_KEYWORDS.filter(k => k.status === "ACTIVE").length) },
-          { label: "Avg. Quality Score", value: (DEMO_KEYWORDS.reduce((s, k) => s + k.qualityScore, 0) / DEMO_KEYWORDS.length).toFixed(1) },
-          { label: "Total Spend", value: formatCurrency(DEMO_KEYWORDS.reduce((s, k) => s + k.spend, 0)) },
-          { label: "Conversions", value: String(DEMO_KEYWORDS.reduce((s, k) => s + k.conversions, 0)) },
-          { label: "Negative Keywords", value: String(DEMO_NEGATIVES.length) },
+          { label: "Active Keywords", value: String(keywords.filter(k => k.status === "ACTIVE").length) },
+          { label: "Avg. Quality Score", value: (keywords.reduce((s, k) => s + k.qualityScore, 0) / keywords.length).toFixed(1) },
+          { label: "Total Spend", value: formatCurrency(keywords.reduce((s, k) => s + k.spend, 0)) },
+          { label: "Conversions", value: String(keywords.reduce((s, k) => s + k.conversions, 0)) },
+          { label: "Negative Keywords", value: String(negatives.length) },
         ].map(stat => (
           <div key={stat.label} style={{ ...S.card, padding: "14px 16px" }}>
             <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "1px", color: "#3f3f46", marginBottom: "6px" }}>{stat.label}</div>
@@ -167,7 +173,7 @@ export default function KeywordsPage() {
       {/* Tabs + search */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" as const }}>
         <div style={{ display: "flex", gap: "6px" }}>
-          {[{ id: "active", label: `Active (${DEMO_KEYWORDS.length})` }, { id: "negatives", label: `Negatives (${DEMO_NEGATIVES.length})` }].map(t => (
+          {[{ id: "active", label: `Active (${keywords.length})` }, { id: "negatives", label: `Negatives (${negatives.length})` }].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as "active" | "negatives")} style={{
               padding: "7px 14px", borderRadius: "7px", fontSize: "12.5px", fontWeight: 500, cursor: "pointer", border: "1px solid",
               background: tab === t.id ? "rgba(249,115,22,0.1)" : "transparent",
@@ -245,7 +251,7 @@ export default function KeywordsPage() {
                 </tr>
               </thead>
               <tbody>
-                {DEMO_NEGATIVES.map((kw, i) => {
+                {negatives.map((kw, i) => {
                   const mc = matchTypeColor[kw.matchType];
                   return (
                     <tr key={i}

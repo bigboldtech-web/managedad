@@ -25,28 +25,13 @@ interface DashboardMetrics {
   topCampaigns: { id: string; name: string; platform: string; spend: number; conversions: number; roas: number; status: string }[];
 }
 
-function getDemoMetrics(): DashboardMetrics {
-  const days = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (29 - i));
-    return `${d.getDate()}/${d.getMonth() + 1}`;
-  });
+function getEmptyMetrics(): DashboardMetrics {
   return {
-    totalSpend: 248500, totalImpressions: 1245000, totalClicks: 38400,
-    totalConversions: 1280, avgCtr: 3.08, avgRoas: 4.2,
-    spendTrend: days.map((date) => ({
-      date,
-      google: Math.round(8000 + Math.random() * 4000),
-      meta: Math.round(6000 + Math.random() * 3000),
-      total: 0,
-    })).map(d => ({ ...d, total: d.google + d.meta })),
-    platformBreakdown: [{ name: "Google Ads", value: 145000 }, { name: "Meta Ads", value: 103500 }],
-    topCampaigns: [
-      { id: "1", name: "Brand Awareness — India", platform: "GOOGLE_ADS", spend: 68000, conversions: 284, roas: 6.0, status: "ACTIVE" },
-      { id: "2", name: "Retargeting — Website Visitors", platform: "META_ADS", spend: 31000, conversions: 198, roas: 9.2, status: "ACTIVE" },
-      { id: "3", name: "Product Launch Q2", platform: "GOOGLE_ADS", spend: 54000, conversions: 156, roas: 4.4, status: "ACTIVE" },
-      { id: "4", name: "Lead Gen — Tier 1 Cities", platform: "META_ADS", spend: 42000, conversions: 124, roas: 0, status: "ACTIVE" },
-      { id: "5", name: "Search — Competitors", platform: "GOOGLE_ADS", spend: 28000, conversions: 45, roas: 2.8, status: "PAUSED" },
-    ],
+    totalSpend: 0, totalImpressions: 0, totalClicks: 0,
+    totalConversions: 0, avgCtr: 0, avgRoas: 0,
+    spendTrend: [],
+    platformBreakdown: [{ name: "Google Ads", value: 0 }, { name: "Meta Ads", value: 0 }],
+    topCampaigns: [],
   };
 }
 
@@ -127,12 +112,12 @@ export default function DashboardPage() {
           return;
         }
       } catch {}
-      setMetrics(getDemoMetrics());
+      setMetrics(getEmptyMetrics());
       setOnboardingChecked(true);
     }
     fetchMetrics();
     const t = setTimeout(() => {
-      setMetrics(m => m ?? getDemoMetrics());
+      setMetrics(m => m ?? getEmptyMetrics());
       setOnboardingChecked(c => c || true);
     }, 1200);
     return () => clearTimeout(t);
@@ -160,15 +145,15 @@ export default function DashboardPage() {
     );
   }
 
-  const data = metrics ?? getDemoMetrics();
+  const data = metrics ?? getEmptyMetrics();
 
   const kpis = [
-    { label: "Total Spend", value: formatCurrency(data.totalSpend), icon: DollarSign, change: "+12.5%", up: false },
-    { label: "Impressions", value: formatCompactNumber(data.totalImpressions), icon: Eye, change: "+8.2%", up: true },
-    { label: "Clicks", value: formatCompactNumber(data.totalClicks), icon: MousePointerClick, change: "+15.3%", up: true },
-    { label: "Conversions", value: formatNumber(data.totalConversions), icon: Target, change: "+22.1%", up: true },
-    { label: "Avg. CTR", value: formatPercent(data.avgCtr), icon: TrendingUp, change: "+0.3%", up: true },
-    { label: "Avg. ROAS", value: `${data.avgRoas.toFixed(1)}x`, icon: BarChart3, change: "+0.4x", up: true },
+    { label: "Total Spend", value: formatCurrency(data.totalSpend), icon: DollarSign },
+    { label: "Impressions", value: formatCompactNumber(data.totalImpressions), icon: Eye },
+    { label: "Clicks", value: formatCompactNumber(data.totalClicks), icon: MousePointerClick },
+    { label: "Conversions", value: formatNumber(data.totalConversions), icon: Target },
+    { label: "Avg. CTR", value: formatPercent(data.avgCtr), icon: TrendingUp },
+    { label: "Avg. ROAS", value: `${data.avgRoas.toFixed(1)}x`, icon: BarChart3 },
   ];
 
   const totalPlatformSpend = data.platformBreakdown.reduce((s, p) => s + p.value, 0);
@@ -198,10 +183,7 @@ export default function DashboardPage() {
                 <kpi.icon size={13} color="#f97316" />
               </div>
             </div>
-            <div style={{ fontFamily: '"Sora", sans-serif', fontSize: "20px", fontWeight: 800, color: "#fafafa", letterSpacing: "-0.5px", marginBottom: "5px" }}>{kpi.value}</div>
-            <div style={{ fontSize: "11px", color: kpi.up ? "#34d399" : "#f87171" }}>
-              {kpi.up ? "↑" : "↑"} {kpi.change} vs last period
-            </div>
+            <div style={{ fontFamily: '"Sora", sans-serif', fontSize: "20px", fontWeight: 800, color: "#fafafa", letterSpacing: "-0.5px" }}>{kpi.value}</div>
           </div>
         ))}
       </div>
@@ -334,9 +316,9 @@ export default function DashboardPage() {
       {/* Quick links */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
         {[
-          { label: "AI Automations", sub: "8 actions today", color: "#f97316", href: "/automations" },
-          { label: "Fraud Blocked", sub: "183 clicks this month", color: "#f87171", href: "/fraud" },
-          { label: "Creatives", sub: "1 ad needs refresh", color: "#fbbf24", href: "/creatives" },
+          { label: "AI Automations", sub: "View automation rules", color: "#f97316", href: "/automations" },
+          { label: "Fraud Detection", sub: "Monitor click fraud", color: "#f87171", href: "/fraud" },
+          { label: "Creatives", sub: "AI ad analysis", color: "#fbbf24", href: "/creatives" },
           { label: "AI Chat", sub: "Ask your data anything", color: "#818cf8", href: "/chat" },
         ].map(item => (
           <Link key={item.label} href={item.href} style={{ textDecoration: "none" }}>

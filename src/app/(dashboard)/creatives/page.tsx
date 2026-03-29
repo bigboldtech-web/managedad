@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Zap, TrendingUp, TrendingDown, Eye, BarChart3, X, Loader2, Check, ChevronLeft, ChevronRight, Send } from "lucide-react";
 import type { GeneratedVariant } from "@/app/api/creatives/generate/route";
 
@@ -27,43 +27,6 @@ interface Creative {
   fatigued: boolean;
 }
 
-const demoCreatives: Creative[] = [
-  {
-    id: "1", name: "Summer Sale — Laptop", platform: "GOOGLE_ADS", type: "RSA", status: "ACTIVE",
-    ctr: 4.8, conversions: 156, spend: 38000, roas: 5.2,
-    headline: "Upgrade Your Laptop — Up to ₹8,000 Off", description: "Premium laptops with 2-yr warranty. Free delivery & EMI from ₹1,499/mo.",
-    score: 88, fatigued: false,
-    scoreBreakdown: [{ label: "Headline", score: 94, color: "#34d399" }, { label: "CTA", score: 82, color: "#34d399" }, { label: "Copy", score: 88, color: "#34d399" }],
-  },
-  {
-    id: "2", name: "Lead Gen — Free Audit", platform: "META_ADS", type: "IMAGE", status: "ACTIVE",
-    ctr: 1.1, conversions: 43, spend: 28000, roas: 2.1, frequency: 5.2,
-    headline: "Get Your Free Ad Account Audit", description: "Discover hidden savings in your ad spend. Book a free 30-min audit with our experts.",
-    score: 52, fatigued: true,
-    scoreBreakdown: [{ label: "Visual", score: 61, color: "#fbbf24" }, { label: "CTA", score: 48, color: "#f87171" }, { label: "Copy", score: 58, color: "#fbbf24" }],
-  },
-  {
-    id: "3", name: "Brand Story — Video 30s", platform: "META_ADS", type: "VIDEO", status: "ACTIVE",
-    ctr: 2.3, conversions: 89, spend: 42000, roas: 3.8, frequency: 3.1,
-    headline: "See How We Helped 500+ Brands 10x Their ROAS", description: "Real results, real businesses. Watch our 30-second brand story.",
-    score: 74, fatigued: false,
-    scoreBreakdown: [{ label: "Hook", score: 82, color: "#34d399" }, { label: "Retention", score: 69, color: "#fbbf24" }, { label: "CTA", score: 71, color: "#fbbf24" }],
-  },
-  {
-    id: "4", name: "Retargeting — Abandoned Cart", platform: "META_ADS", type: "CAROUSEL", status: "ACTIVE",
-    ctr: 3.9, conversions: 203, spend: 31000, roas: 6.4, frequency: 2.0,
-    headline: "You Left Something Behind 👀", description: "Your perfect laptop is still waiting. Complete your order and get free delivery today.",
-    score: 91, fatigued: false,
-    scoreBreakdown: [{ label: "Relevance", score: 96, color: "#34d399" }, { label: "CTA", score: 88, color: "#34d399" }, { label: "Copy", score: 89, color: "#34d399" }],
-  },
-  {
-    id: "5", name: "Competitor — Best Price", platform: "GOOGLE_ADS", type: "RSA", status: "PAUSED",
-    ctr: 1.4, conversions: 12, spend: 18000, roas: 1.2,
-    headline: "Best Laptop Prices in India", description: "Compare top laptop brands. Best deals guaranteed with ManagedAd.",
-    score: 41, fatigued: false,
-    scoreBreakdown: [{ label: "Headline", score: 35, color: "#f87171" }, { label: "CTA", score: 52, color: "#fbbf24" }, { label: "Copy", score: 36, color: "#f87171" }],
-  },
-];
 
 function CharBar({ text, max, label }: { text: string; max: number; label: string }) {
   const len = text.length;
@@ -83,8 +46,21 @@ function CharBar({ text, max, label }: { text: string; max: number; label: strin
 }
 
 export default function CreativesPage() {
-  const [creatives] = useState<Creative[]>(demoCreatives);
-  const [selected, setSelected] = useState<Creative | null>(creatives[0]);
+  const [creatives, setCreatives] = useState<Creative[]>([]);
+  const [selected, setSelected] = useState<Creative | null>(null);
+
+  useEffect(() => {
+    async function fetchCreatives() {
+      try {
+        const res = await fetch("/api/creatives");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length) { setCreatives(data); setSelected(data[0]); }
+        }
+      } catch {}
+    }
+    fetchCreatives();
+  }, []);
   const [tab, setTab] = useState<"all" | "fatigued">("all");
 
   // Generate panel state

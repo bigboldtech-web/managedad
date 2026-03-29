@@ -284,31 +284,14 @@ function BillingContent() {
         })}
       </div>
 
-      {/* Usage */}
+      {/* Usage — removed hardcoded stats, plan info shown via banner */}
       <div style={{ ...S.card, padding: "22px 24px" }}>
-        <div style={{ fontFamily: '"Sora", sans-serif', fontSize: "14px", fontWeight: 700, color: "#fafafa", marginBottom: "16px" }}>Current Usage</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-          {[
-            { label: "Ad Accounts", used: 2, limit: 4 },
-            { label: "Active Campaigns", used: 6, limit: "Unlimited" },
-            { label: "Automation Actions", used: 847, limit: "Unlimited" },
-          ].map(u => (
-            <div key={u.label}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <span style={{ fontSize: "12.5px", color: "#71717a" }}>{u.label}</span>
-                <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#fafafa", fontFamily: "var(--font-ibm-plex-mono), monospace" }}>
-                  {u.used}{typeof u.limit === "number" ? ` / ${u.limit}` : " / ∞"}
-                </span>
-              </div>
-              {typeof u.limit === "number" && (
-                <div style={{ height: "4px", background: "#1f1f25", borderRadius: "2px" }}>
-                  <div style={{ height: "100%", width: `${(u.used / u.limit) * 100}%`, background: "#f97316", borderRadius: "2px" }} />
-                </div>
-              )}
-            </div>
-          ))}
+        <div style={{ fontFamily: '"Sora", sans-serif', fontSize: "14px", fontWeight: 700, color: "#fafafa", marginBottom: "16px" }}>Plan Details</div>
+        <div style={{ fontSize: "13px", color: "#71717a", lineHeight: 1.6 }}>
+          Your subscription is managed from this page. Connect your ad accounts in <a href="/settings" style={{ color: "#fb923c", textDecoration: "none" }}>Settings</a> to start managing campaigns.
         </div>
       </div>
+
     </div>
   );
 }

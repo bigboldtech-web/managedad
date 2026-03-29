@@ -91,15 +91,10 @@ export default function SettingsPage() {
         const conns: Connection[] = [];
         if (gRes.ok) { const d = await gRes.json(); if (d.connections) conns.push(...d.connections.map((c: Connection) => ({ ...c, platform: "google" as const }))); }
         if (mRes.ok) { const d = await mRes.json(); if (d.connections) conns.push(...d.connections.map((c: Connection) => ({ ...c, platform: "meta" as const }))); }
-        if (conns.length) setConnections(conns);
-        else setConnections([
-          { id: "demo-google", platform: "google", accountName: "My Google Ads Account", isActive: true, lastSyncAt: "2 min ago" },
-          { id: "demo-meta", platform: "meta", accountName: "My Meta Business Account", isActive: true, lastSyncAt: "8 min ago" },
-        ]);
-      } catch { setConnections([
-        { id: "demo-google", platform: "google", accountName: "My Google Ads Account", isActive: true, lastSyncAt: "2 min ago" },
-        { id: "demo-meta", platform: "meta", accountName: "My Meta Business Account", isActive: true, lastSyncAt: "8 min ago" },
-      ]); }
+        setConnections(conns);
+      } catch {
+        setConnections([]);
+      }
     }
     fetchConnections();
   }, []);

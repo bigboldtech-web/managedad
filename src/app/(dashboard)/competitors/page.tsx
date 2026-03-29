@@ -24,13 +24,6 @@ const threatColors: Record<string, { bg: string; color: string }> = {
   LOW: { bg: "rgba(82,82,91,0.12)", color: "#71717a" },
 };
 
-// Fallback demo data for when there are no Google Ads connections
-const DEMO_COMPETITORS: Competitor[] = [
-  { domain: "laptopwala.com", impressionShare: 34, overlapRate: 68, posAbove: 28, topPageRate: 71, absTopPageRate: 42, threat: "HIGH" },
-  { domain: "croma.com", impressionShare: 28, overlapRate: 52, posAbove: 41, topPageRate: 85, absTopPageRate: 55, threat: "HIGH" },
-  { domain: "reliancedigital.in", impressionShare: 22, overlapRate: 44, posAbove: 19, topPageRate: 78, absTopPageRate: 38, threat: "MEDIUM" },
-  { domain: "vijaysales.com", impressionShare: 14, overlapRate: 31, posAbove: 11, topPageRate: 62, absTopPageRate: 24, threat: "LOW" },
-];
 
 export default function CompetitorsPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -51,14 +44,14 @@ export default function CompetitorsPage() {
           setSelected(json.competitors[0]);
           setHasData(true);
         } else {
-          setCompetitors(DEMO_COMPETITORS);
-          setSelected(DEMO_COMPETITORS[0]);
+          setCompetitors([]);
+          setSelected([][0]);
           setHasData(false);
         }
       }
     } catch {
-      setCompetitors(DEMO_COMPETITORS);
-      setSelected(DEMO_COMPETITORS[0]);
+      setCompetitors([]);
+      setSelected([][0]);
     } finally {
       setLoading(false);
     }
@@ -115,7 +108,7 @@ export default function CompetitorsPage() {
       {!hasData && !loading && (
         <div style={{ ...S.card, padding: "12px 16px", borderColor: "rgba(251,191,36,0.2)", display: "flex", alignItems: "center", gap: "10px" }}>
           <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#fbbf24", flexShrink: 0 }} />
-          <span style={{ fontSize: "12.5px", color: "#71717a" }}>Showing demo data — connect Google Ads to see real auction insights from your campaigns</span>
+          <span style={{ fontSize: "12.5px", color: "#71717a" }}>Connect Google Ads to see real auction insights from your campaigns</span>
         </div>
       )}
 

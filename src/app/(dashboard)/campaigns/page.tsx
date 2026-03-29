@@ -28,18 +28,9 @@ const S = {
   mono: { fontFamily: "var(--font-ibm-plex-mono), monospace" },
 };
 
-const demoCampaigns: Campaign[] = [
-  { id: "1", name: "Brand Awareness — India", platform: "GOOGLE_ADS", status: "ACTIVE", dailyBudget: 5000, impressions: 245000, clicks: 8200, conversions: 312, spend: 142000, revenue: 682000 },
-  { id: "2", name: "Lead Gen — Tier 1 Cities", platform: "META_ADS", status: "ACTIVE", dailyBudget: 3500, impressions: 187000, clicks: 5900, conversions: 198, spend: 98000, revenue: 412000 },
-  { id: "3", name: "Product Launch Q2", platform: "GOOGLE_ADS", status: "ACTIVE", dailyBudget: 8000, impressions: 312000, clicks: 11400, conversions: 445, spend: 218000, revenue: 960000 },
-  { id: "4", name: "Retargeting — Website Visitors", platform: "META_ADS", status: "ACTIVE", dailyBudget: 2000, impressions: 92000, clicks: 4100, conversions: 287, spend: 62000, revenue: 389000 },
-  { id: "5", name: "Search — Competitor Keywords", platform: "GOOGLE_ADS", status: "PAUSED", dailyBudget: 4000, impressions: 68000, clicks: 1900, conversions: 54, spend: 78000, revenue: 198000 },
-  { id: "6", name: "Video — Brand Story", platform: "META_ADS", status: "ACTIVE", dailyBudget: 2500, impressions: 420000, clicks: 3200, conversions: 89, spend: 72000, revenue: 256000 },
-];
-
 export default function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>(demoCampaigns);
-  const [loading, setLoading] = useState(false);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("ALL");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [search, setSearch] = useState("");
@@ -50,9 +41,9 @@ export default function CampaignsPage() {
         const res = await fetch("/api/campaigns");
         if (res.ok) {
           const data = await res.json();
-          if (data.length) setCampaigns(data);
+          setCampaigns(data ?? []);
         }
-      } catch { /* use demo data */ }
+      } catch {}
       setLoading(false);
     }
     fetchCampaigns();

@@ -70,14 +70,7 @@ export default function FraudPage() {
       color: ["#f87171", "#fbbf24", "#fb923c", "#818cf8", "#38bdf8"][i],
     }));
 
-  // Fallback signal bars if no real data yet
-  const displaySignals = signalBars.length > 0 ? signalBars : [
-    { signal: "Click Velocity", pct: 38, color: "#f87171" },
-    { signal: "Bot User Agents", pct: 27, color: "#fbbf24" },
-    { signal: "Geographic Mismatch", pct: 19, color: "#fb923c" },
-    { signal: "VPN/Proxy IPs", pct: 11, color: "#818cf8" },
-    { signal: "Headless Browsers", pct: 5, color: "#38bdf8" },
-  ];
+  const displaySignals = signalBars;
 
   // Build alerts from real data + fallback
   const displayAlerts = alerts.length > 0

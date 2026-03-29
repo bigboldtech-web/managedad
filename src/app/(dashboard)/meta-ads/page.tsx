@@ -43,36 +43,9 @@ interface OverviewData {
   dailyTrend: DailyTrend[]; campaigns: CampaignData[];
 }
 
-// Demo data shown when no API connection
-const DEMO_TREND: DailyTrend[] = Array.from({ length: 14 }, (_, i) => {
-  const d = new Date(); d.setDate(d.getDate() - 13 + i);
-  return {
-    date: d.toISOString().split("T")[0],
-    spend: 8000 + Math.random() * 4000,
-    impressions: 60000 + Math.random() * 30000,
-    clicks: 1200 + Math.random() * 600,
-    conversions: 20 + Math.random() * 20,
-    reach: 45000 + Math.random() * 20000,
-    ctr: 1.8 + Math.random() * 0.8,
-    cpc: 6 + Math.random() * 3,
-  };
-});
-
-const DEMO_CAMPAIGNS: CampaignData[] = [
-  { id: "1", name: "Diwali Sale — Conversions", status: "ACTIVE", objective: "OUTCOME_SALES", dailyBudget: 5000, impressions: 412000, clicks: 8240, reach: 310000, conversions: 284, spend: 68000, revenue: 410000, ctr: 2.0, cpc: 8.25, cpa: 239, roas: 6.03, costPerResult: 239 },
-  { id: "2", name: "Brand Awareness — Video", status: "ACTIVE", objective: "OUTCOME_AWARENESS", dailyBudget: 3000, impressions: 920000, clicks: 4600, reach: 750000, conversions: 0, spend: 42000, revenue: 0, ctr: 0.5, cpc: 9.13, cpa: 0, roas: 0, costPerResult: 0 },
-  { id: "3", name: "Retargeting — Cart Abandoners", status: "ACTIVE", objective: "OUTCOME_SALES", dailyBudget: 2000, impressions: 85000, clicks: 5100, reach: 62000, conversions: 198, spend: 31000, revenue: 285000, ctr: 6.0, cpc: 6.08, cpa: 157, roas: 9.19, costPerResult: 157 },
-  { id: "4", name: "Lookalike — Top Buyers", status: "PAUSED", objective: "OUTCOME_SALES", dailyBudget: 4000, impressions: 194000, clicks: 3880, reach: 148000, conversions: 76, spend: 28000, revenue: 132000, ctr: 2.0, cpc: 7.22, cpa: 368, roas: 4.71, costPerResult: 368 },
-  { id: "5", name: "Lead Gen — Free Trial", status: "ACTIVE", objective: "OUTCOME_LEADS", dailyBudget: 1500, impressions: 67000, clicks: 2010, reach: 54000, conversions: 124, spend: 18500, revenue: 0, ctr: 3.0, cpc: 9.2, cpa: 149, roas: 0, costPerResult: 149 },
-];
-
-const DEMO_SUMMARY: Summary = {
-  totalSpend: 187500, totalImpressions: 1678000, totalClicks: 23830, totalReach: 1324000,
-  totalConversions: 682, totalRevenue: 827000, avgCtr: 1.42, avgCpc: 7.87, costPerResult: 274, avgRoas: 4.41,
-};
-const DEMO_PREV: Summary = {
-  totalSpend: 164200, totalImpressions: 1420000, totalClicks: 19600, totalReach: 1100000,
-  totalConversions: 548, totalRevenue: 694000, avgCtr: 1.38, avgCpc: 8.38, costPerResult: 300, avgRoas: 4.23,
+const EMPTY_SUMMARY: Summary = {
+  totalSpend: 0, totalImpressions: 0, totalClicks: 0, totalReach: 0,
+  totalConversions: 0, totalRevenue: 0, avgCtr: 0, avgCpc: 0, costPerResult: 0, avgRoas: 0,
 };
 
 type SortField = keyof CampaignData;
@@ -158,11 +131,10 @@ export default function MetaAdsPage() {
   const hasConnection = connections.some((c) => c.isActive);
   const activeConnection = connections.find((c) => c.isActive);
 
-  // Use real data if available, fallback to demo
-  const s = overview?.summary || (loading ? null : DEMO_SUMMARY);
-  const prev = overview?.previousPeriod || (loading ? null : DEMO_PREV);
-  const trendData = overview?.dailyTrend?.length ? overview.dailyTrend : DEMO_TREND;
-  const campaignList = overview?.campaigns?.length ? overview.campaigns : DEMO_CAMPAIGNS;
+  const s = overview?.summary || (loading ? null : EMPTY_SUMMARY);
+  const prev = overview?.previousPeriod || (loading ? null : EMPTY_SUMMARY);
+  const trendData = overview?.dailyTrend || [];
+  const campaignList = overview?.campaigns || [];
   const isDemo = !overview && !loading;
 
   const sortedCampaigns = campaignList

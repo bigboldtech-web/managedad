@@ -17,17 +17,12 @@ const S = {
 interface Connection { id: string; customerId: string; accountName: string | null; isActive: boolean; lastSyncAt: string | null; }
 interface Campaign { id: string; name: string; status: string; dailyBudget: number; impressions: number; clicks: number; conversions: number; spend: number; }
 
-const demoCampaigns: Campaign[] = [
-  { id: "1", name: "Brand Awareness — India", status: "ACTIVE", dailyBudget: 5000, impressions: 245000, clicks: 8200, conversions: 312, spend: 142000 },
-  { id: "2", name: "Product Launch Q2", status: "ACTIVE", dailyBudget: 8000, impressions: 312000, clicks: 11400, conversions: 445, spend: 218000 },
-  { id: "3", name: "Search — Competitors", status: "PAUSED", dailyBudget: 4000, impressions: 68000, clicks: 1900, conversions: 54, spend: 78000 },
-];
 
 function GoogleAdsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>(demoCampaigns);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -48,7 +43,7 @@ function GoogleAdsContent() {
         const [connRes, campRes] = await Promise.all([fetch("/api/google-ads/connections"), fetch("/api/google-ads/campaigns")]);
         if (connRes.ok) { const d = await connRes.json(); if (Array.isArray(d) && d.length) setConnections(d); }
         if (campRes.ok) { const d = await campRes.json(); if (Array.isArray(d) && d.length) setCampaigns(d); }
-      } catch { /* use demo */ }
+      } catch {}
       setLoading(false);
     }
     fetchData();

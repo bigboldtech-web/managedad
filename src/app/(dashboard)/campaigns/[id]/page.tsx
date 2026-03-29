@@ -44,29 +44,6 @@ interface CampaignDetail {
   }[];
 }
 
-// Demo campaign used when API returns nothing
-function buildDemoCampaign(id: string): CampaignDetail {
-  return {
-    id, name: "Brand Awareness — Q1 2025", platform: "GOOGLE_ADS", status: "ACTIVE",
-    objective: "SALES", dailyBudget: 5000, impressions: 412800, clicks: 18340,
-    conversions: 284, spend: 97500, revenue: 428000, createdAt: new Date().toISOString(),
-    ads: [
-      { id: "a1", name: "Responsive Search Ad — Main", type: "RESPONSIVE_SEARCH_AD", status: "ACTIVE", impressions: 210000, clicks: 9800, conversions: 148, spend: 52000 },
-      { id: "a2", name: "Responsive Search Ad — Promo", type: "RESPONSIVE_SEARCH_AD", status: "ACTIVE", impressions: 140000, clicks: 6200, conversions: 96, spend: 31000 },
-      { id: "a3", name: "Display Banner 300x250", type: "DISPLAY_AD", status: "PAUSED", impressions: 62800, clicks: 2340, conversions: 40, spend: 14500 },
-    ],
-    keywords: [
-      { id: "k1", text: "buy laptop online india", matchType: "EXACT", status: "ACTIVE", qualityScore: 9, impressions: 24800, clicks: 1840, conversions: 87, spend: 52000 },
-      { id: "k2", text: "best laptop under 50000", matchType: "PHRASE", status: "ACTIVE", qualityScore: 7, impressions: 18200, clicks: 1120, conversions: 62, spend: 38000 },
-      { id: "k3", text: "gaming laptop india", matchType: "BROAD", status: "ACTIVE", qualityScore: 5, impressions: 31400, clicks: 890, conversions: 21, spend: 29000 },
-      { id: "k4", text: "laptop emi no interest", matchType: "EXACT", status: "ACTIVE", qualityScore: 8, impressions: 8900, clicks: 620, conversions: 48, spend: 17000 },
-    ],
-    dailyMetrics: Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - 13 + i);
-      return { date: d.toISOString().split("T")[0], impressions: 28000 + Math.random() * 8000, clicks: 1200 + Math.random() * 400, spend: 6500 + Math.random() * 2000, conversions: 18 + Math.random() * 10 };
-    }),
-  };
-}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
@@ -103,7 +80,7 @@ export default function CampaignDetailPage() {
         const res = await fetch(`/api/campaigns?id=${campaignId}`);
         if (res.ok) { setCampaign(await res.json()); setLoading(false); return; }
       } catch {}
-      setCampaign(buildDemoCampaign(campaignId));
+      setCampaign(null);
       setLoading(false);
     }
     fetchCampaign();
