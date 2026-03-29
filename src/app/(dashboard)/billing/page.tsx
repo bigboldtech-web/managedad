@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { Check, Zap, Crown, Building2, Loader2 } from "lucide-react";
 
 const S = {
@@ -100,9 +100,21 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
+const PLAN_NAMES: Record<string, string> = { FREE: "Free", STARTER: "Starter", GROWTH: "Growth", AGENCY: "Agency" };
+const PLAN_ICONS: Record<string, any> = { FREE: Zap, STARTER: Zap, GROWTH: Crown, AGENCY: Building2 };
+const PLAN_COLORS: Record<string, string> = { FREE: "#71717a", STARTER: "#fb923c", GROWTH: "#f97316", AGENCY: "#a78bfa" };
+
 function BillingContent() {
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const [loading, setLoading] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<string>("FREE");
+
+  useEffect(() => {
+    fetch("/api/billing/subscription")
+      .then(r => r.json())
+      .then(d => setCurrentPlan(d.plan ?? "FREE"))
+      .catch(() => {});
+  }, []);
 
   async function handleSubscribe(planKey: string) {
     if (planKey === "AGENCY") {
@@ -176,16 +188,23 @@ function BillingContent() {
       </div>
 
       {/* Current plan banner */}
-      <div style={{ padding: "16px 20px", background: "rgba(249,115,22,0.06)", border: "1px solid rgba(249,115,22,0.2)", borderRadius: "10px", display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-        <Crown size={16} color="#f97316" />
-        <div>
-          <span style={{ fontSize: "13.5px", fontWeight: 600, color: "#fafafa" }}>You&apos;re on the Growth plan</span>
-          <span style={{ fontSize: "12.5px", color: "#71717a", marginLeft: "8px" }}>Trial ends in 7 days</span>
-        </div>
-        <button onClick={() => handleSubscribe("GROWTH")} style={{ marginLeft: "auto", padding: "7px 16px", background: "#f97316", border: "none", borderRadius: "7px", color: "#fff", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" }}>
-          Upgrade Now
-        </button>
-      </div>
+      {(() => {
+        const BannerIcon = PLAN_ICONS[currentPlan] || Zap;
+        const bannerColor = PLAN_COLORS[currentPlan] || "#f97316";
+        return (
+          <div style={{ padding: "16px 20px", background: `${bannerColor}0F`, border: `1px solid ${bannerColor}33`, borderRadius: "10px", display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+            <BannerIcon size={16} color={bannerColor} />
+            <div>
+              <span style={{ fontSize: "13.5px", fontWeight: 600, color: "#fafafa" }}>You&apos;re on the {PLAN_NAMES[currentPlan] || currentPlan} plan</span>
+            </div>
+            {currentPlan !== "AGENCY" && (
+              <button onClick={() => handleSubscribe("AGENCY")} style={{ marginLeft: "auto", padding: "7px 16px", background: "#f97316", border: "none", borderRadius: "7px", color: "#fff", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" }}>
+                Upgrade
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Billing toggle */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", justifyContent: "center" }}>
@@ -200,6 +219,7 @@ function BillingContent() {
       {/* Plans */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
         {PLANS.map((plan) => {
+          const isCurrent = plan.key === currentPlan;
           const displayPrice = billing === "annual"
             ? `₹${Math.round(plan.priceMonthly * 0.8).toLocaleString("en-IN")}`
             : plan.price;
@@ -209,15 +229,15 @@ function BillingContent() {
             <div key={plan.name} style={{
               ...S.card,
               position: "relative",
-              borderColor: plan.popular ? "rgba(249,115,22,0.5)" : "#27272e",
-              background: plan.popular ? "rgba(249,115,22,0.03)" : "#111114",
+              borderColor: isCurrent ? `${plan.color}80` : plan.popular ? "rgba(249,115,22,0.5)" : "#27272e",
+              background: isCurrent ? `${plan.color}08` : plan.popular ? "rgba(249,115,22,0.03)" : "#111114",
             }}>
-              {plan.popular && (
+              {plan.popular && !isCurrent && (
                 <div style={{ position: "absolute", top: "-1px", left: "50%", transform: "translateX(-50%)", padding: "4px 14px", background: "#f97316", borderRadius: "0 0 8px 8px", fontSize: "10px", fontWeight: 700, color: "#fff", letterSpacing: "0.5px" }}>
                   MOST POPULAR
                 </div>
               )}
-              {plan.current && (
+              {isCurrent && (
                 <div style={{ position: "absolute", top: "14px", right: "14px", padding: "2px 8px", background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: "4px", fontSize: "9.5px", fontWeight: 700, color: "#34d399" }}>CURRENT</div>
               )}
               <div style={{ padding: "24px 22px" }}>
@@ -244,19 +264,19 @@ function BillingContent() {
                 </div>
 
                 <button
-                  onClick={() => !plan.current && handleSubscribe(plan.key)}
-                  disabled={plan.current || isLoading}
+                  onClick={() => !isCurrent && handleSubscribe(plan.key)}
+                  disabled={isCurrent || isLoading}
                   style={{
                     width: "100%", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                    background: plan.current ? "transparent" : plan.popular ? "#f97316" : "transparent",
-                    border: `1px solid ${plan.current ? "#27272e" : plan.popular ? "#f97316" : "#27272e"}`,
+                    background: isCurrent ? "transparent" : plan.popular ? "#f97316" : "transparent",
+                    border: `1px solid ${isCurrent ? "#27272e" : plan.popular ? "#f97316" : "#27272e"}`,
                     borderRadius: "8px",
-                    color: plan.current ? "#71717a" : plan.popular ? "#fff" : "#a1a1aa",
-                    fontSize: "13px", fontWeight: 600, cursor: plan.current ? "default" : "pointer",
+                    color: isCurrent ? "#71717a" : plan.popular ? "#fff" : "#a1a1aa",
+                    fontSize: "13px", fontWeight: 600, cursor: isCurrent ? "default" : "pointer",
                     opacity: isLoading ? 0.7 : 1,
                   }}>
                   {isLoading && <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />}
-                  {plan.current ? "Current Plan" : plan.cta}
+                  {isCurrent ? "Current Plan" : plan.cta}
                 </button>
               </div>
             </div>
