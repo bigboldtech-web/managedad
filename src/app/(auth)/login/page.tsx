@@ -17,17 +17,26 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    if (result?.error) {
-      setError("Invalid email or password");
+      if (result?.error) {
+        setError("Invalid email or password");
+        setLoading(false);
+      } else if (result?.ok) {
+        // Use hard redirect to ensure cookie is sent on next request
+        window.location.href = "/dashboard";
+      } else {
+        setError("Something went wrong. Please try again.");
+        setLoading(false);
+      }
+    } catch {
+      setError("Connection error. Please try again.");
       setLoading(false);
-    } else {
-      router.push("/dashboard");
     }
   }
 
