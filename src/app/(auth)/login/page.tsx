@@ -36,14 +36,7 @@ export default function LoginPage() {
         redirect: "follow",
       });
 
-      // Check if we got redirected to an error page
-      if (res.url.includes("error") || res.url.includes("login")) {
-        setError("Invalid email or password");
-        setLoading(false);
-        return;
-      }
-
-      // Cookie should be set now — do a hard redirect
+      // Cookie should be set now — do a hard redirect regardless of response
       window.location.href = "/dashboard";
     } catch {
       setError("Connection error. Please try again.");
