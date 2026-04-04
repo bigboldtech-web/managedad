@@ -314,7 +314,10 @@ function StepSync({ hasConnections, campaignCount, onNext, onBack }: {
   async function handleSync() {
     setSyncing(true);
     try {
-      await fetch("/api/cron/sync-ads", { method: "POST" });
+      // Sync Google Ads (user-authenticated endpoint)
+      await fetch("/api/google-ads/sync", { method: "POST" }).catch(() => {});
+      // Sync Meta Ads
+      await fetch("/api/meta-ads/sync", { method: "POST" }).catch(() => {});
       // Fetch updated campaign count
       const res = await fetch("/api/campaigns");
       if (res.ok) {

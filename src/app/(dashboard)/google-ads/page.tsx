@@ -70,9 +70,23 @@ function GoogleAdsContent() {
 
   async function handleSync() {
     setSyncing(true);
-    try { await fetch("/api/cron/sync-ads", { method: "POST" }); }
-    catch { /* ignore */ }
-    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const res = await fetch("/api/google-ads/sync", { method: "POST" });
+      if (res.ok) {
+        // Refresh data after sync
+        const [connRes, campRes] = await Promise.all([
+          fetch("/api/google-ads/connections"),
+          fetch("/api/google-ads/campaigns"),
+        ]);
+        if (connRes.ok) { const d = await connRes.json(); if (Array.isArray(d) && d.length) setConnections(d); }
+        if (campRes.ok) { const d = await campRes.json(); if (Array.isArray(d) && d.length) setCampaigns(d); }
+      } else {
+        const err = await res.json();
+        console.error("Sync error:", err);
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+    }
     setSyncing(false);
   }
 
