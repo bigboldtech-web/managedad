@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAnthropic, CLAUDE_MODEL } from "@/lib/anthropic";
 import { checkFeatureAccess } from "@/lib/plan-limits";
+import { rateLimit } from "@/lib/rate-limit";
 
 export interface GeneratedVariant {
   headlines: string[];    // Google RSA: up to 15, max 30 chars each
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { success: rlOk } = rateLimit(`creative-gen:${session.user.id}`, 10, 15 * 60_000);
+  if (!rlOk) {
+    return NextResponse.json({ error: "Too many generation requests. Please wait." }, { status: 429 });
   }
 
   // Plan limit check — "creative_generation" feature required

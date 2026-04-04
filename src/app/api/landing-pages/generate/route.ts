@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAnthropic, CLAUDE_MODEL } from "@/lib/anthropic";
+import { rateLimit } from "@/lib/rate-limit";
 
 function slugify(text: string): string {
   return text
@@ -18,6 +19,11 @@ function ensureUniqueSlug(base: string): string {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { success: rlOk } = rateLimit(`lp-gen:${session.user.id}`, 10, 15 * 60_000);
+  if (!rlOk) {
+    return NextResponse.json({ error: "Too many generation requests. Please wait." }, { status: 429 });
+  }
 
   const { prompt, name } = await req.json();
   if (!prompt?.trim()) return NextResponse.json({ error: "prompt required" }, { status: 400 });

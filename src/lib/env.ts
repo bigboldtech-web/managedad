@@ -82,16 +82,15 @@ export function validateEnv(): void {
   void OPTIONAL_PREFIXES;
 }
 
-// Run validation when this module is imported
+// Run validation when this module is imported (skip during Next.js build)
 (() => {
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
   try {
     validateEnv();
   } catch (error) {
-    // In build/CI environments some vars may not be set yet.
-    // Log the error but only throw in a server runtime context.
     if (typeof window === "undefined" && process.env.NODE_ENV !== "test") {
       console.error(`[env] ${(error as Error).message}`);
-      // Re-throw in production to fail fast; warn-only during build
       if (process.env.NODE_ENV === "production") {
         throw error;
       }

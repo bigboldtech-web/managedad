@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getAnthropic, CLAUDE_MODEL } from "@/lib/anthropic";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { success: rlOk } = rateLimit(`comp-analyze:${session.user.id}`, 10, 15 * 60_000);
+  if (!rlOk) {
+    return NextResponse.json({ error: "Too many requests. Please wait." }, { status: 429 });
+  }
 
   const { competitors } = await req.json();
   if (!competitors?.length) return NextResponse.json({ analysis: "" });

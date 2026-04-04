@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAnthropic, CLAUDE_MODEL } from "@/lib/anthropic";
 import { checkFeatureAccess } from "@/lib/plan-limits";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Pull a compact account snapshot for the AI context
 async function buildAccountContext(userId: string): Promise<string> {
@@ -89,6 +90,11 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { success: rlOk } = rateLimit(`chat:${session.user.id}`, 20, 60_000);
+  if (!rlOk) {
+    return NextResponse.json({ error: "Too many requests. Please wait a minute." }, { status: 429 });
   }
 
   // Plan limit check — "chat" feature required
