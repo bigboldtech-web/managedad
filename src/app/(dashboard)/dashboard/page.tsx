@@ -51,79 +51,41 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState<null | {
-    userName: string;
-    hasGoogle: boolean;
-    hasMeta: boolean;
-    hasCampaigns: boolean;
-  }>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
-    async function fetchMetrics() {
+    async function init() {
+      try {
+        // Check onboarding status from DB first
+        const onbRes = await fetch("/api/onboarding/progress");
+        if (onbRes.ok) {
+          const onbData = await onbRes.json();
+          if (!onbData.completed) {
+            setShowOnboarding(true);
+            setOnboardingChecked(true);
+            return;
+          }
+        }
+      } catch {}
+
+      // Onboarding done — load dashboard metrics
       try {
         const res = await fetch("/api/dashboard/overview");
         if (res.ok) {
-          const data = await res.json();
-          setMetrics(data);
-
-          // Check if user is brand new: no spend AND no campaigns
-          const isEmpty =
-            data.totalSpend === 0 &&
-            (!data.topCampaigns || data.topCampaigns.length === 0) &&
-            (!data.platformBreakdown || data.platformBreakdown.every((p: { value: number }) => p.value === 0));
-
-          if (isEmpty) {
-            // Check connections
-            let hasGoogle = false;
-            let hasMeta = false;
-            let userName = "";
-            try {
-              const [gRes, mRes, sessionRes] = await Promise.all([
-                fetch("/api/google-ads/connections"),
-                fetch("/api/meta-ads/connections"),
-                fetch("/api/auth/session"),
-              ]);
-              if (gRes.ok) {
-                const gData = await gRes.json();
-                hasGoogle = Array.isArray(gData) ? gData.length > 0 : !!gData?.connected;
-              }
-              if (mRes.ok) {
-                const mData = await mRes.json();
-                hasMeta = Array.isArray(mData) ? mData.length > 0 : !!mData?.connected;
-              }
-              if (sessionRes.ok) {
-                const session = await sessionRes.json();
-                userName = session?.user?.name || "";
-              }
-            } catch {}
-
-            // Only show onboarding if no connections AND no campaigns
-            if (!hasGoogle && !hasMeta) {
-              setShowOnboarding({
-                userName,
-                hasGoogle,
-                hasMeta,
-                hasCampaigns: false,
-              });
-            }
-          }
-          setOnboardingChecked(true);
-          return;
+          setMetrics(await res.json());
+        } else {
+          setMetrics(getEmptyMetrics());
         }
-      } catch {}
-      setMetrics(getEmptyMetrics());
+      } catch {
+        setMetrics(getEmptyMetrics());
+      }
       setOnboardingChecked(true);
     }
-    fetchMetrics();
-    const t = setTimeout(() => {
-      setMetrics(m => m ?? getEmptyMetrics());
-      setOnboardingChecked(c => c || true);
-    }, 1200);
-    return () => clearTimeout(t);
+    init();
   }, []);
 
-  // Show nothing while checking onboarding status
+  // Show nothing while checking
   if (!onboardingChecked) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 120px)" }}>
@@ -135,14 +97,7 @@ export default function DashboardPage() {
 
   // Show onboarding wizard for new users
   if (showOnboarding) {
-    return (
-      <OnboardingWizard
-        userName={showOnboarding.userName}
-        hasGoogleConnection={showOnboarding.hasGoogle}
-        hasMetaConnection={showOnboarding.hasMeta}
-        hasCampaigns={showOnboarding.hasCampaigns}
-      />
-    );
+    return <OnboardingWizard />;
   }
 
   const data = metrics ?? getEmptyMetrics();

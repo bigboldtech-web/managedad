@@ -1,14 +1,20 @@
 {
   "crons": [
-    { "path": "/api/cron/sync-ads",        "schedule": "0 * * * *"    },
-    { "path": "/api/cron/anomaly",         "schedule": "*/30 * * * *" },
-    { "path": "/api/cron/budget-optimize", "schedule": "0 * * * *"    },
-    { "path": "/api/cron/mine-negatives",  "schedule": "0 */6 * * *"  },
-    { "path": "/api/cron/optimize",        "schedule": "0 6 * * *"    },
-    { "path": "/api/cron/daily-digest",    "schedule": "0 8 * * *"    },
-    { "path": "/api/cron/audit",           "schedule": "0 7 * * 1"    },
-    { "path": "/api/cron/weekly-report",   "schedule": "0 9 * * 1"    },
-    { "path": "/api/cron/refresh-meta-tokens", "schedule": "0 3 * * 3" },
-    { "path": "/api/cron/monthly-report",      "schedule": "0 7 1 * *"  }
+    { "path": "/api/cron/sync-ads",               "schedule": "0 * * * *"    },
+    { "path": "/api/cron/anomaly",                "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/budget-optimize",        "schedule": "0 * * * *"    },
+    { "path": "/api/cron/mine-negatives",         "schedule": "0 */6 * * *"  },
+    { "path": "/api/cron/optimize",               "schedule": "0 6 * * *"    },
+    { "path": "/api/cron/daily-digest",           "schedule": "0 8 * * *"    },
+    { "path": "/api/cron/audit",                  "schedule": "0 7 * * 1"    },
+    { "path": "/api/cron/weekly-report",          "schedule": "0 9 * * 1"    },
+    { "path": "/api/cron/refresh-meta-tokens",    "schedule": "0 3 * * 3"    },
+    { "path": "/api/cron/monthly-report",         "schedule": "0 7 1 * *"    },
+    { "path": "/api/cron/weekly-keyword-review",  "schedule": "0 5 * * 2"    },
+    { "path": "/api/cron/weekly-creative-review", "schedule": "0 5 * * 3"    },
+    { "path": "/api/cron/weekly-bid-review",      "schedule": "0 5 * * 4"    },
+    { "path": "/api/cron/weekly-budget-review",   "schedule": "0 5 * * 5"    },
+    { "path": "/api/cron/weekly-competitor-review","schedule": "0 5 * * 6"    },
+    { "path": "/api/cron/weekly-recommendations", "schedule": "0 7 * * 1"    }
   ]
 }

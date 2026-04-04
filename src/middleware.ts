@@ -28,7 +28,9 @@ export default auth((req) => {
     nextUrl.pathname.startsWith("/billing") ||
     nextUrl.pathname.startsWith("/settings") ||
     nextUrl.pathname.startsWith("/reports") ||
-    nextUrl.pathname.startsWith("/audit");
+    nextUrl.pathname.startsWith("/audit") ||
+    nextUrl.pathname.startsWith("/reviews") ||
+    nextUrl.pathname.startsWith("/recommendations");
   const isAdminPage = nextUrl.pathname.startsWith("/admin");
 
   if (isAuthPage && isLoggedIn) {
@@ -76,6 +78,10 @@ export const config = {
     "/reports",
     "/audit/:path*",
     "/audit",
+    "/reviews/:path*",
+    "/reviews",
+    "/recommendations/:path*",
+    "/recommendations",
     "/admin/:path*",
     "/login",
     "/register",

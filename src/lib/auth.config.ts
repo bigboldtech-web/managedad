@@ -11,7 +11,7 @@ export const authConfig = {
   },
   session: { strategy: "jwt" as const },
   trustHost: true,
-  useSecureCookies: false,
+  useSecureCookies: process.env.NODE_ENV === "production",
   providers: [], // Populated in auth.ts (credentials/google need Node.js runtime)
   callbacks: {
     async session({ session, token }: { session: any; token: any }) {

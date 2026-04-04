@@ -22,6 +22,8 @@ import {
   ClipboardCheck,
   MapPin,
   FileText,
+  Eye,
+  TrendingUp,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -48,6 +50,8 @@ const navSections = [
     label: "AI Engine",
     items: [
       { name: "Automations", href: "/automations", icon: Zap },
+      { name: "Reviews", href: "/reviews", icon: Eye },
+      { name: "Recommendations", href: "/recommendations", icon: TrendingUp },
       { name: "Creatives", href: "/creatives", icon: Image },
       { name: "Chat", href: "/chat", icon: MessageSquare },
       { name: "Audit", href: "/audit", icon: ClipboardCheck },
