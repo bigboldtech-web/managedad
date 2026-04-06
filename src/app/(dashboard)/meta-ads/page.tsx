@@ -6,6 +6,7 @@ import {
   DollarSign, Eye, MousePointerClick, Target, TrendingUp, TrendingDown,
   Users, BarChart3, RefreshCw, Link2, Unlink, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Zap,
 } from "lucide-react";
+import DateRangePicker from "@/components/shared/date-range-picker";
 import { formatCurrency, formatNumber, formatPercent, formatCompactNumber } from "@/lib/utils";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -19,7 +20,7 @@ const S = {
 
 const META_BLUE = "#1877F2";
 
-type DateRange = "7d" | "14d" | "30d" | "90d";
+// Date range is now handled by the date range picker component
 
 interface Connection {
   id: string; adAccountId: string; accountName: string | null; isActive: boolean; lastSyncAt: string | null;
@@ -76,13 +77,14 @@ export default function MetaAdsPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
-  const [range, setRange] = useState<DateRange>("14d");
+  const [startDate, setStartDate] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 14); d.setHours(0,0,0,0); return d; });
+  const [endDate, setEndDate] = useState<Date>(() => new Date());
   const [sortField, setSortField] = useState<SortField>("spend");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   useEffect(() => { fetchConnections(); }, []);
-  useEffect(() => { fetchOverview(); }, [range]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchOverview(); }, [startDate, endDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchConnections() {
     try {
@@ -95,7 +97,7 @@ export default function MetaAdsPage() {
   async function fetchOverview() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/meta-ads/overview?range=${range}`);
+      const res = await fetch(`/api/meta-ads/overview?start=${startDate.toISOString().split("T")[0]}&end=${endDate.toISOString().split("T")[0]}`);
       if (res.ok) setOverview(await res.json());
     } catch {}
     setLoading(false);
@@ -184,14 +186,11 @@ export default function MetaAdsPage() {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          {/* Date range */}
-          <div style={{ display: "flex", gap: "4px", background: "#18181c", border: "1px solid #27272e", borderRadius: "8px", padding: "3px" }}>
-            {(["7d", "14d", "30d", "90d"] as DateRange[]).map((r) => (
-              <button key={r} onClick={() => setRange(r)} style={{ padding: "4px 10px", borderRadius: "5px", fontSize: "11.5px", fontWeight: 500, cursor: "pointer", border: "none", background: range === r ? "#27272e" : "transparent", color: range === r ? "#fafafa" : "#52525b", transition: "all 0.15s" }}>
-                {r}
-              </button>
-            ))}
-          </div>
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+          />
           {hasConnection && (
             <button onClick={handleSync} disabled={syncing} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "7px 14px", background: "transparent", border: "1px solid #27272e", borderRadius: "8px", color: "#71717a", fontSize: "12.5px", cursor: syncing ? "not-allowed" : "pointer" }}>
               <RefreshCw size={13} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />

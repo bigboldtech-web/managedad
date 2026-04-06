@@ -16,17 +16,30 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Support custom date range via start/end params, or preset range
+  const startParam = req.nextUrl.searchParams.get("start");
+  const endParam = req.nextUrl.searchParams.get("end");
   const range = req.nextUrl.searchParams.get("range") || "7d";
-  const days = RANGE_DAYS[range] || 7;
 
-  const now = new Date();
-  const endDate = new Date(now);
-  endDate.setHours(23, 59, 59, 999);
+  let startDate: Date;
+  let endDate: Date;
 
-  const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - days);
-  startDate.setHours(0, 0, 0, 0);
+  if (startParam && endParam) {
+    startDate = new Date(startParam);
+    startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(endParam);
+    endDate.setHours(23, 59, 59, 999);
+  } else {
+    const days = RANGE_DAYS[range] || 7;
+    const now = new Date();
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+  }
 
+  const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
   const prevEndDate = new Date(startDate);
   prevEndDate.setMilliseconds(-1);
   const prevStartDate = new Date(prevEndDate);
