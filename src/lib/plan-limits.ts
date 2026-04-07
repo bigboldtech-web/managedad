@@ -53,11 +53,13 @@ export async function checkAccountLimit(
 
   if (limit === -1) return { allowed: true, current: 0, limit: -1 };
 
-  const [googleCount, metaCount] = await Promise.all([
+  const [googleCount, metaCount, tiktokCount, linkedinCount] = await Promise.all([
     prisma.googleAdsConnection.count({ where: { userId, isActive: true } }),
     prisma.metaAdsConnection.count({ where: { userId, isActive: true } }),
+    prisma.tikTokAdsConnection.count({ where: { userId, isActive: true } }),
+    prisma.linkedInAdsConnection.count({ where: { userId, isActive: true } }),
   ]);
-  const current = googleCount + metaCount;
+  const current = googleCount + metaCount + tiktokCount + linkedinCount;
 
   return { allowed: current < limit, current, limit };
 }

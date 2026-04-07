@@ -29,7 +29,7 @@ export interface OptimizationAction {
 export interface CampaignAnalysis {
   campaignId: string;
   campaignName: string;
-  platform: "GOOGLE_ADS" | "META_ADS";
+  platform: "GOOGLE_ADS" | "META_ADS" | "TIKTOK_ADS" | "LINKEDIN_ADS";
   status: string;
   dailyBudget: number;
   totalImpressions: number;

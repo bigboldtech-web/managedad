@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
-import { User, Bell, Plug, Lock, Check, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { User, Bell, Plug, Lock, Check } from "lucide-react";
+import ConnectionsPanel from "@/components/connections/connections-panel";
 
 const S = {
   card: { background: "#111114", border: "1px solid #27272e", borderRadius: "12px" },
@@ -13,16 +15,14 @@ const S = {
 
 type Tab = "profile" | "connections" | "notifications" | "security";
 
-interface Connection { id: string; platform: "google" | "meta"; accountName: string | null; isActive: boolean; lastSyncAt: string | null; }
-
-export default function SettingsPage() {
+function SettingsContent() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>("profile");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [connections, setConnections] = useState<Connection[]>([]);
 
   const [emailNotif, setEmailNotif] = useState(true);
   const [slackEnabled, setSlackEnabled] = useState(false);
@@ -45,6 +45,14 @@ export default function SettingsPage() {
   useEffect(() => {
     if (session?.user) { setName(session.user.name ?? ""); setEmail(session.user.email ?? ""); }
   }, [session]);
+
+  // Auto-switch to connections tab when URL has ?tab=connections
+  useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (urlTab === "connections" || urlTab === "profile" || urlTab === "notifications" || urlTab === "security") {
+      setTab(urlTab as Tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadNotifSettings() {
@@ -83,21 +91,6 @@ export default function SettingsPage() {
       setNotifSaving(false);
     }
   }
-
-  useEffect(() => {
-    async function fetchConnections() {
-      try {
-        const [gRes, mRes] = await Promise.all([fetch("/api/google-ads/connections"), fetch("/api/meta-ads/connections")]);
-        const conns: Connection[] = [];
-        if (gRes.ok) { const d = await gRes.json(); if (d.connections) conns.push(...d.connections.map((c: Connection) => ({ ...c, platform: "google" as const }))); }
-        if (mRes.ok) { const d = await mRes.json(); if (d.connections) conns.push(...d.connections.map((c: Connection) => ({ ...c, platform: "meta" as const }))); }
-        setConnections(conns);
-      } catch {
-        setConnections([]);
-      }
-    }
-    fetchConnections();
-  }, []);
 
   async function saveProfile() {
     setSaving(true);
@@ -202,46 +195,17 @@ export default function SettingsPage() {
           )}
 
           {tab === "connections" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div style={{ ...S.card, padding: "24px" }}>
-                <div style={S.sectionTitle}>Ad Platform Connections</div>
-                {connections.map(conn => (
-                  <div key={conn.id} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 0", borderBottom: "1px solid #1a1a1f" }}>
-                    <div style={{ width: "36px", height: "36px", borderRadius: "9px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: conn.platform === "google" ? "rgba(66,133,244,0.12)" : "rgba(24,119,242,0.12)" }}>
-                      <span style={{ fontSize: "16px" }}>{conn.platform === "google" ? "G" : "f"}</span>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: "13.5px", fontWeight: 600, color: "#fafafa" }}>{conn.accountName}</div>
-                      <div style={{ fontSize: "11.5px", color: "#52525b" }}>{conn.platform === "google" ? "Google Ads" : "Meta Ads"} · Last sync: {conn.lastSyncAt}</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ padding: "3px 9px", borderRadius: "5px", fontSize: "10.5px", fontWeight: 600, background: conn.isActive ? "rgba(52,211,153,0.08)" : "rgba(113,113,122,0.1)", color: conn.isActive ? "#34d399" : "#71717a" }}>
-                        {conn.isActive ? "● Connected" : "Disconnected"}
-                      </span>
-                      <button style={{ padding: "5px 12px", background: "transparent", border: "1px solid rgba(248,113,113,0.3)", borderRadius: "6px", color: "#f87171", fontSize: "11.5px", cursor: "pointer" }}>Disconnect</button>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-                  <a href="/api/google-ads/connect" style={{ padding: "8px 16px", background: "rgba(66,133,244,0.1)", border: "1px solid rgba(66,133,244,0.3)", borderRadius: "8px", color: "#4285F4", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}>+ Connect Google Ads</a>
-                  <a href="/api/meta-ads/connect" style={{ padding: "8px 16px", background: "rgba(24,119,242,0.1)", border: "1px solid rgba(24,119,242,0.3)", borderRadius: "8px", color: "#1877F2", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}>+ Connect Meta Ads</a>
-                </div>
-              </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <ConnectionsPanel />
+
               <div style={{ ...S.card, padding: "24px" }}>
                 <div style={S.sectionTitle}>Integrations</div>
-                {[
-                  { name: "Slack", desc: "Get notifications in your Slack workspace", connected: false, color: "#611f69" },
-                  { name: "WhatsApp", desc: "Receive alerts via WhatsApp Business", connected: false, color: "#25D366" },
-                  { name: "Razorpay", desc: "Track ad ROI against revenue", connected: false, color: "#072654" },
-                ].map(int => (
-                  <div key={int.name} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "12px 0", borderBottom: "1px solid #1a1a1f" }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#fafafa" }}>{int.name}</div>
-                      <div style={{ fontSize: "11.5px", color: "#52525b" }}>{int.desc}</div>
-                    </div>
-                    <button style={{ padding: "5px 14px", background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: "6px", color: "#fb923c", fontSize: "12px", fontWeight: 500, cursor: "pointer" }}>Connect</button>
-                  </div>
-                ))}
+                <div style={{ fontSize: "11.5px", color: "#52525b", marginBottom: "16px", marginTop: "-10px" }}>
+                  Configure Slack, WhatsApp and other notification channels in the Notifications tab.
+                </div>
+                <button onClick={() => setTab("notifications")} style={{ padding: "8px 16px", background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: "8px", color: "#fb923c", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" }}>
+                  Go to Notifications →
+                </button>
               </div>
             </div>
           )}
@@ -354,5 +318,13 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div style={{ color: "#52525b", padding: "40px", textAlign: "center" }}>Loading...</div>}>
+      <SettingsContent />
+    </Suspense>
   );
 }

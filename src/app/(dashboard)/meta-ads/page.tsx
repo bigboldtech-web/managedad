@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   DollarSign, Eye, MousePointerClick, Target, TrendingUp, TrendingDown,
-  Users, BarChart3, RefreshCw, Link2, Unlink, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Zap,
+  Users, BarChart3, RefreshCw, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Zap,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import DateRangePicker from "@/components/shared/date-range-picker";
 import { formatCurrency, formatNumber, formatPercent, formatCompactNumber } from "@/lib/utils";
@@ -76,7 +77,7 @@ export default function MetaAdsPage() {
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  // Connection management moved to /settings?tab=connections
   const [startDate, setStartDate] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 14); d.setHours(0,0,0,0); return d; });
   const [endDate, setEndDate] = useState<Date>(() => new Date());
   const [sortField, setSortField] = useState<SortField>("spend");
@@ -113,17 +114,7 @@ export default function MetaAdsPage() {
     setSyncing(false);
   }
 
-  async function handleDisconnect(connectionId: string) {
-    setDisconnecting(connectionId);
-    try {
-      const res = await fetch(`/api/meta-ads/connections?id=${connectionId}`, { method: "DELETE" });
-      if (res.ok) {
-        setConnections((prev) => prev.filter((c) => c.id !== connectionId));
-        await fetchOverview();
-      }
-    } catch {}
-    setDisconnecting(null);
-  }
+  // Disconnect is handled from /settings?tab=connections
 
   function handleSort(field: SortField) {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -197,10 +188,8 @@ export default function MetaAdsPage() {
               {syncing ? "Syncing..." : "Sync"}
             </button>
           )}
-          <Link href="/api/meta-ads/connect" style={{ textDecoration: "none" }}>
-            <button style={{ display: "flex", alignItems: "center", gap: "6px", padding: "7px 14px", background: META_BLUE, border: "none", borderRadius: "8px", color: "#fff", fontSize: "12.5px", fontWeight: 600, cursor: "pointer" }}>
-              <Link2 size={13} /> {hasConnection ? "Add Account" : "Connect Meta"}
-            </button>
+          <Link href="/settings?tab=connections" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "7px 14px", background: "transparent", border: "1px solid #27272e", borderRadius: "8px", color: "#a1a1aa", fontSize: "12.5px", textDecoration: "none" }}>
+            <SettingsIcon size={13} /> Manage Connections
           </Link>
         </div>
       </div>
@@ -364,9 +353,6 @@ export default function MetaAdsPage() {
                   <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "#18181c", border: "1px solid #27272e", borderRadius: "8px" }}>
                     <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#34d399" }} />
                     <span style={{ fontSize: "12.5px", color: "#e4e4e7", fontWeight: 500 }}>{c.accountName || c.adAccountId}</span>
-                    <button onClick={() => handleDisconnect(c.id)} disabled={disconnecting === c.id} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", display: "flex", alignItems: "center", color: "#3f3f46" }}>
-                      {disconnecting === c.id ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Unlink size={12} />}
-                    </button>
                   </div>
                 ))}
               </div>

@@ -2,8 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Target, Link2, RefreshCw, Plus, CheckCircle2, XCircle, Unlink } from "lucide-react";
+import { Target, RefreshCw, Plus, CheckCircle2, XCircle, Settings } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 const S = {
@@ -19,23 +18,10 @@ interface Campaign { id: string; name: string; status: string; dailyBudget: numb
 
 
 function GoogleAdsContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [disconnecting, setDisconnecting] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [customerId, setCustomerId] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
   const [syncing, setSyncing] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get("setup") === "enter_customer_id" && connections.length === 0) setShowForm(true);
-    if (connections.length > 0) { setShowForm(false); if (searchParams.get("setup")) router.replace("/google-ads"); }
-  }, [searchParams, connections, router]);
 
   useEffect(() => {
     async function fetchData() {
@@ -48,25 +34,6 @@ function GoogleAdsContent() {
     }
     fetchData();
   }, []);
-
-  async function saveCustomerId() {
-    const sanitized = customerId.replace(/[-\s]/g, "");
-    if (!/^\d{3,10}$/.test(sanitized)) { setFormError("Enter a valid Google Ads Customer ID (e.g., 123-456-7890)"); return; }
-    setSaving(true); setFormError("");
-    try {
-      const res = await fetch("/api/google-ads/connections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerId: sanitized, accountName: accountName || null }) });
-      if (res.ok) { setShowForm(false); setCustomerId(""); setAccountName(""); router.replace("/google-ads?connected=true"); const r = await fetch("/api/google-ads/connections"); if (r.ok) setConnections(await r.json()); }
-      else { const d = await res.json(); setFormError(d.error || "Failed to save connection"); }
-    } catch { setFormError("Failed to save connection"); }
-    setSaving(false);
-  }
-
-  async function handleDisconnect(id: string) {
-    setDisconnecting(id);
-    try { const r = await fetch(`/api/google-ads/connections?id=${id}`, { method: "DELETE" }); if (r.ok) setConnections(prev => prev.filter(c => c.id !== id)); }
-    catch { /* ignore */ }
-    setDisconnecting(null);
-  }
 
   async function handleSync() {
     setSyncing(true);
@@ -97,29 +64,6 @@ function GoogleAdsContent() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Customer ID form modal */}
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ ...S.card, padding: "28px", width: "440px", maxWidth: "90vw" }}>
-            <h2 style={{ fontFamily: '"Sora", sans-serif', fontSize: "17px", fontWeight: 800, color: "#fafafa", marginBottom: "6px" }}>Enter Google Ads Customer ID</h2>
-            <p style={{ fontSize: "12.5px", color: "#52525b", marginBottom: "20px", lineHeight: 1.5 }}>Your Google account is connected. Now enter your Google Ads Customer ID (found top-right of your Google Ads dashboard).</p>
-            <div style={{ marginBottom: "12px" }}>
-              <label style={{ fontSize: "11.5px", fontWeight: 600, color: "#71717a", marginBottom: "5px", display: "block" }}>Customer ID *</label>
-              <input value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="123-456-7890" style={S.input} />
-            </div>
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontSize: "11.5px", fontWeight: 600, color: "#71717a", marginBottom: "5px", display: "block" }}>Account Name (optional)</label>
-              <input value={accountName} onChange={e => setAccountName(e.target.value)} placeholder="My Business Account" style={S.input} />
-            </div>
-            {formError && <div style={{ padding: "8px 12px", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "7px", color: "#f87171", fontSize: "12.5px", marginBottom: "14px" }}>{formError}</div>}
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={saveCustomerId} disabled={saving} style={{ flex: 1, height: "40px", background: saving ? "rgba(249,115,22,0.5)" : "#f97316", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>{saving ? "Saving..." : "Save Connection"}</button>
-              <button onClick={() => setShowForm(false)} style={{ padding: "0 18px", height: "40px", background: "transparent", border: "1px solid #27272e", borderRadius: "8px", color: "#71717a", fontSize: "13px", cursor: "pointer" }}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
@@ -132,9 +76,9 @@ function GoogleAdsContent() {
               <RefreshCw size={13} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} /> {syncing ? "Syncing..." : "Sync Now"}
             </button>
           )}
-          <a href="/api/google-ads/connect" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "9px 16px", background: "#4285F4", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}>
-            <Link2 size={13} /> {hasConnection ? "Add Account" : "Connect Google Ads"}
-          </a>
+          <Link href="/settings?tab=connections" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", background: "transparent", border: "1px solid #27272e", borderRadius: "8px", color: "#a1a1aa", fontSize: "12.5px", textDecoration: "none" }}>
+            <Settings size={13} /> Manage Connections
+          </Link>
         </div>
       </div>
 
@@ -165,10 +109,10 @@ function GoogleAdsContent() {
               <Target size={22} color="#4285F4" />
             </div>
             <div style={{ fontSize: "14px", fontWeight: 600, color: "#fafafa", marginBottom: "6px" }}>No accounts connected</div>
-            <div style={{ fontSize: "12.5px", color: "#52525b", marginBottom: "16px" }}>Connect your Google Ads account to start managing campaigns.</div>
-            <a href="/api/google-ads/connect" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "9px 18px", background: "#4285F4", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}>
-              <Link2 size={13} /> Connect Google Ads
-            </a>
+            <div style={{ fontSize: "12.5px", color: "#52525b", marginBottom: "16px" }}>Connect your Google Ads account from the Settings page.</div>
+            <Link href="/settings?tab=connections" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "9px 18px", background: "#4285F4", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}>
+              <Settings size={13} /> Go to Settings
+            </Link>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -184,9 +128,6 @@ function GoogleAdsContent() {
                 <span style={{ padding: "3px 9px", borderRadius: "5px", fontSize: "10.5px", fontWeight: 600, background: conn.isActive ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)", color: conn.isActive ? "#34d399" : "#f87171" }}>
                   {conn.isActive ? "Active" : "Disconnected"}
                 </span>
-                <button onClick={() => handleDisconnect(conn.id)} disabled={disconnecting === conn.id} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 12px", background: "transparent", border: "1px solid rgba(248,113,113,0.3)", borderRadius: "6px", color: "#f87171", fontSize: "11.5px", cursor: "pointer" }}>
-                  <Unlink size={11} /> {disconnecting === conn.id ? "..." : "Disconnect"}
-                </button>
               </div>
             ))}
           </div>

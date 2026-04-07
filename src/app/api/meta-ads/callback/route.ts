@@ -97,14 +97,14 @@ export async function GET(req: NextRequest) {
     }
 
     const successResponse = NextResponse.redirect(
-      new URL("/meta-ads?connected=true", baseUrl)
+      new URL("/settings?tab=connections&connected=meta", baseUrl)
     );
     successResponse.cookies.delete("meta_oauth_state");
     return successResponse;
   } catch (error) {
     console.error("Meta Ads OAuth error:", error);
     const errorResponse = NextResponse.redirect(
-      new URL("/meta-ads?error=oauth_failed", baseUrl)
+      new URL("/settings?tab=connections&error=oauth_failed", baseUrl)
     );
     errorResponse.cookies.delete("meta_oauth_state");
     return errorResponse;

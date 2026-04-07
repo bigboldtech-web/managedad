@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
       }
 
       return NextResponse.redirect(
-        new URL("/google-ads?connected=true", baseUrl)
+        new URL("/settings?tab=connections&connected=google", baseUrl)
       );
     }
 
@@ -134,12 +134,12 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.redirect(
-      new URL("/google-ads?setup=enter_customer_id", baseUrl)
+      new URL("/settings?tab=connections&setup=google_manual", baseUrl)
     );
   } catch (error) {
     console.error("Google Ads OAuth error:", error);
     return NextResponse.redirect(
-      new URL("/google-ads?error=oauth_failed", baseUrl)
+      new URL("/settings?tab=connections&error=oauth_failed", baseUrl)
     );
   }
 }
