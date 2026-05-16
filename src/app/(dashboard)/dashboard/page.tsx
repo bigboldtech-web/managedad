@@ -9,6 +9,8 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import OnboardingWizard from "@/components/onboarding/onboarding-wizard";
+import LearningProgress from "@/components/dashboard/learning-progress";
+import CrossPlatformInsights from "@/components/dashboard/cross-platform-insights";
 
 const S = {
   card: { background: "#111114", border: "1px solid #27272e", borderRadius: "12px" },
@@ -266,6 +268,12 @@ export default function DashboardPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Helios learning + cross-platform insights */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+        <LearningProgress />
+        <CrossPlatformInsights />
       </div>
 
       {/* Quick links */}

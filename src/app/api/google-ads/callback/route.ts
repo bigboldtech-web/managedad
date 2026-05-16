@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { exchangeCodeForTokens } from "@/lib/google-ads/oauth";
 import { prisma } from "@/lib/prisma";
 import { encryptToken } from "@/lib/encryption";
+import { checkAccountLimit } from "@/lib/plan-limits";
+import { sendManagerLinkInvitation } from "@/lib/google-ads/manager-link";
 
 export async function GET(req: NextRequest) {
   const baseUrl =
@@ -16,7 +18,17 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
-      new URL("/google-ads?error=no_code", baseUrl)
+      new URL("/settings?tab=connections&error=no_code", baseUrl)
+    );
+  }
+
+  const limitCheck = await checkAccountLimit(session.user.id);
+  if (!limitCheck.allowed) {
+    return NextResponse.redirect(
+      new URL(
+        `/settings?tab=connections&error=plan_limit&current=${limitCheck.current}&limit=${limitCheck.limit}`,
+        baseUrl
+      )
     );
   }
 
@@ -118,7 +130,16 @@ export async function GET(req: NextRequest) {
 
       const clients = resolved.filter((r) => !r.isManager);
 
-      for (const client of clients) {
+      // Respect remaining plan seats
+      const remainingSeats =
+        limitCheck.limit === -1
+          ? clients.length
+          : Math.max(0, limitCheck.limit - limitCheck.current);
+      const clientsToSave = clients.slice(0, remainingSeats);
+
+      const envMcc = process.env.GOOGLE_ADS_MANAGER_ID?.replace(/-/g, "");
+
+      for (const client of clientsToSave) {
         await prisma.googleAdsConnection.upsert({
           where: {
             userId_customerId: {
@@ -144,6 +165,24 @@ export async function GET(req: NextRequest) {
             ...(client.accountName && { accountName: client.accountName }),
           },
         });
+
+        // Auto-send the MCC link invitation if a manager account is configured
+        // and this client isn't already linked to it. Best-effort — failure here
+        // doesn't block the connection (user can also link manually).
+        if (envMcc && client.customerId !== envMcc) {
+          try {
+            await sendManagerLinkInvitation({
+              clientCustomerId: client.customerId,
+              managerCustomerId: envMcc,
+              accessToken: tokens.access_token,
+            });
+          } catch (err) {
+            console.error(
+              `Manager link invitation failed for ${client.customerId}:`,
+              err
+            );
+          }
+        }
       }
 
       // If only a manager account was returned (no clients yet), drop to manual

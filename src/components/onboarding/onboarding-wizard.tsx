@@ -406,16 +406,35 @@ function StepSync({ hasConnections, campaignCount, onNext, onBack }: {
 /* ════════════════════════════════════════════════
    STEP 4: Optimization Preferences
    ════════════════════════════════════════════════ */
+const VERTICAL_OPTIONS = [
+  { value: "D2C", label: "D2C / E-commerce", hint: "Apparel, beauty, FMCG, online retail" },
+  { value: "SAAS", label: "SaaS / B2B", hint: "Subscription software, B2B services" },
+  { value: "REAL_ESTATE", label: "Real estate", hint: "Property, brokerage" },
+  { value: "EDTECH", label: "EdTech", hint: "Courses, coaching, online education" },
+  { value: "LEAD_GEN", label: "Lead generation", hint: "Local services, agencies, consultants" },
+  { value: "OTHER", label: "Other", hint: "Doesn't fit above" },
+] as const;
+
+const OBJECTIVE_PRESETS = [
+  { id: "ecommerce", label: "Maximize revenue (ROAS-first)", weights: { roas: 0.7, cpa: 0.2, volume: 0.1 } },
+  { id: "leadgen", label: "Lower cost per lead (CPA-first)", weights: { roas: 0.3, cpa: 0.6, volume: 0.1 } },
+  { id: "growth", label: "Drive volume (Volume-first)", weights: { roas: 0.2, cpa: 0.3, volume: 0.5 } },
+  { id: "balanced", label: "Balanced", weights: { roas: 0.5, cpa: 0.3, volume: 0.2 } },
+] as const;
+
 function StepPreferences({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const [targetRoas, setTargetRoas] = useState(3);
   const [maxBudgetIncrease, setMaxBudgetIncrease] = useState(25);
+  const [vertical, setVertical] = useState<typeof VERTICAL_OPTIONS[number]["value"]>("D2C");
+  const [objective, setObjective] = useState<typeof OBJECTIVE_PRESETS[number]["id"]>("ecommerce");
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
     setSaving(true);
     try {
+      const preset = OBJECTIVE_PRESETS.find((p) => p.id === objective) ?? OBJECTIVE_PRESETS[0];
       await fetch("/api/optimization/settings", {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           isEnabled: true,
@@ -423,6 +442,10 @@ function StepPreferences({ onNext, onBack }: { onNext: () => void; onBack: () =>
           maxBudgetIncrease,
           maxBudgetDecrease: 50,
           minImpressions: 100,
+          roasWeight: preset.weights.roas,
+          cpaWeight: preset.weights.cpa,
+          volumeWeight: preset.weights.volume,
+          vertical,
         }),
       });
     } catch {}
@@ -443,6 +466,76 @@ function StepPreferences({ onNext, onBack }: { onNext: () => void; onBack: () =>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginBottom: "8px" }}>
+        {/* Business type */}
+        <div style={{ ...S.card, padding: "20px" }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "#fafafa", marginBottom: "2px" }}>
+            What kind of business is this?
+          </div>
+          <div style={{ fontSize: "12px", color: "#52525b", marginBottom: "12px" }}>
+            Sets the industry benchmarks the AI optimizes against.
+          </div>
+          <select
+            value={vertical}
+            onChange={(e) => setVertical(e.target.value as typeof vertical)}
+            style={{
+              width: "100%",
+              background: "#18181c",
+              border: "1px solid #27272e",
+              color: "#fafafa",
+              padding: "10px 12px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontFamily: "inherit",
+            }}
+          >
+            {VERTICAL_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label} — {opt.hint}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* AI objective */}
+        <div style={{ ...S.card, padding: "20px" }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "#fafafa", marginBottom: "2px" }}>
+            What matters most?
+          </div>
+          <div style={{ fontSize: "12px", color: "#52525b", marginBottom: "12px" }}>
+            We&apos;ll tune the AI&apos;s decisions toward this objective. Adjustable later in AI Objective.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {OBJECTIVE_PRESETS.map((p) => (
+              <label
+                key={p.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  border: "1px solid",
+                  borderColor: objective === p.id ? "#f97316" : "#27272e",
+                  background: objective === p.id ? "rgba(249,115,22,0.08)" : "transparent",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: objective === p.id ? "#fafafa" : "#a1a1aa",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="objective"
+                  value={p.id}
+                  checked={objective === p.id}
+                  onChange={() => setObjective(p.id)}
+                  style={{ accentColor: "#f97316" }}
+                />
+                {p.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* Target ROAS */}
         <div style={{ ...S.card, padding: "20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>

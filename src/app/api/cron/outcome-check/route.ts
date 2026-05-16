@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { recordActionOutcome } from "@/lib/optimization/helios/fingerprint";
+import { recordActionOutcome, recordSilentRejection } from "@/lib/optimization/helios/fingerprint";
 import type { AdPlatform } from "@prisma/client";
 
 const OUTCOME_WINDOW_DAYS = 14;
+const SILENT_REJECTION_WINDOW_DAYS = 7;
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -104,11 +105,63 @@ export async function POST(req: NextRequest) {
     recorded += 1;
   }
 
+  // Silent rejection scan: look for applied actions in the last 7 days where
+  // the campaign's current state has reverted to the previous value.
+  // Heuristic: budget actions check current dailyBudget vs newValue.dailyBudget.
+  const silentSince = new Date(Date.now() - SILENT_REJECTION_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const recentBudgetActions = await prisma.optimizationAction.findMany({
+    where: {
+      status: "APPLIED",
+      appliedAt: { gte: silentSince },
+      actionType: { in: ["INCREASE_BUDGET", "DECREASE_BUDGET"] },
+    },
+    include: {
+      campaign: {
+        select: {
+          dailyBudget: true,
+          platform: true,
+          googleAdsConnectionId: true,
+          metaAdsConnectionId: true,
+        },
+      },
+    },
+    take: 500,
+  });
+
+  let silentRejections = 0;
+  for (const action of recentBudgetActions) {
+    if (!action.campaign?.dailyBudget) continue;
+    const intended = (action.newValue as { dailyBudget?: number } | null)?.dailyBudget;
+    const previous = (action.previousValue as { dailyBudget?: number } | null)?.dailyBudget;
+    if (intended == null || previous == null) continue;
+    const current = Number(action.campaign.dailyBudget);
+
+    // User reverted if current is closer to previous than to intended
+    const distFromIntended = Math.abs(current - intended);
+    const distFromPrevious = Math.abs(current - previous);
+    if (distFromPrevious < distFromIntended * 0.5) {
+      const platform = action.campaign.platform as AdPlatform;
+      const accountId =
+        platform === "GOOGLE_ADS"
+          ? action.campaign.googleAdsConnectionId
+          : action.campaign.metaAdsConnectionId;
+      if (!accountId) continue;
+
+      await recordSilentRejection({
+        platform,
+        accountId,
+        actionType: action.actionType,
+      });
+      silentRejections += 1;
+    }
+  }
+
   return NextResponse.json({
     message: "Outcome check completed",
     candidatesFound: actions.length,
     recorded,
     skipped: skipped.length,
+    silentRejections,
     timestamp: new Date().toISOString(),
   });
 }

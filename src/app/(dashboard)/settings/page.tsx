@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { User, Bell, Plug, Lock, Check } from "lucide-react";
 import ConnectionsPanel from "@/components/connections/connections-panel";
+import OAuthResultBanner from "@/components/connections/oauth-result-banner";
+import WhatHappensNext from "@/components/connections/what-happens-next";
 
 const S = {
   card: { background: "#111114", border: "1px solid #27272e", borderRadius: "12px" },
@@ -196,7 +198,9 @@ function SettingsContent() {
 
           {tab === "connections" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <OAuthResultBanner />
               <ConnectionsPanel />
+              <WhatHappensNext />
 
               <div style={{ ...S.card, padding: "24px" }}>
                 <div style={S.sectionTitle}>Integrations</div>

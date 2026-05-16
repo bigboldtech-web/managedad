@@ -7,6 +7,7 @@ import {
 import { MetaAdsClient } from "@/lib/meta-ads/client";
 import { prisma } from "@/lib/prisma";
 import { encryptToken } from "@/lib/encryption";
+import { checkAccountLimit } from "@/lib/plan-limits";
 
 export async function GET(req: NextRequest) {
   const baseUrl =
@@ -58,12 +59,31 @@ export async function GET(req: NextRequest) {
 
     if (adAccountsResponse.data.length === 0) {
       return NextResponse.redirect(
-        new URL("/meta-ads?error=no_ad_accounts", baseUrl)
+        new URL("/settings?tab=connections&error=no_ad_accounts", baseUrl)
       );
     }
 
+    // Enforce plan account limit
+    const limitCheck = await checkAccountLimit(session.user.id);
+    if (!limitCheck.allowed) {
+      return NextResponse.redirect(
+        new URL(
+          `/settings?tab=connections&error=plan_limit&current=${limitCheck.current}&limit=${limitCheck.limit}`,
+          baseUrl
+        )
+      );
+    }
+
+    // Cap how many we save to respect remaining seats
+    const remainingSeats =
+      limitCheck.limit === -1
+        ? adAccountsResponse.data.length
+        : Math.max(0, limitCheck.limit - limitCheck.current);
+
+    const accountsToSave = adAccountsResponse.data.slice(0, remainingSeats);
+
     // Store connections for each ad account
-    for (const account of adAccountsResponse.data) {
+    for (const account of accountsToSave) {
       // account.id is in format "act_123456", extract just the number
       const adAccountId = account.account_id;
 

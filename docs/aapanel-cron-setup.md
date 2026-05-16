@@ -84,6 +84,12 @@ task logs, and `--max-time 600` so a hung request can't pile up.
 
 # Daily 03:30 — recompute per-account fingerprint benchmarks from last 30d
 30 3 * * *     curl -fsS --max-time 600 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/fingerprint-recompute
+
+# Daily 04:30 — scan creatives for fatigue (7-day CTR regression)
+30 4 * * *     curl -fsS --max-time 600 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/fatigue-scan
+
+# Weekly Thursdays 04:00 — mine cross-platform patterns (Meta→Google + Google→Meta)
+0 4 * * 4      curl -fsS --max-time 600 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/cross-platform-mine
 ```
 
 ## Exposing CRON_SECRET to cron jobs

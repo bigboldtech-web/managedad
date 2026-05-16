@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { createGoogleAdsClient } from "@/lib/google-ads/client";
 import { createMetaAdsClient } from "@/lib/meta-ads/client";
+import { checkGuardrails } from "./helios/guardrails";
+import type { ActionCandidate } from "./helios/types";
 
 interface ExecutionSummary {
   applied: number;
@@ -51,6 +53,36 @@ export async function executeApprovedActions(
       const campaign = action.campaign;
       if (!campaign) {
         throw new Error(`No campaign found for action ${action.id}`);
+      }
+
+      // Execute-time guardrail re-check. Conditions may have changed since
+      // the action was queued (spend velocity, new applied actions, etc.).
+      const guardCandidate: ActionCandidate = {
+        id: action.id,
+        type: action.actionType,
+        campaignId: action.campaignId ?? campaign.id ?? "",
+        adId: action.adId ?? undefined,
+        keywordId: action.keywordId ?? undefined,
+        magnitude: 0,
+        expectedDelta: action.expectedDelta ? Number(action.expectedDelta) : 0,
+        confidence: action.confidence ? Number(action.confidence) : 0,
+        riskTier: action.riskTier,
+        reasonCode: (action.reasonCode as ActionCandidate["reasonCode"]) ?? "ROAS_DECAY",
+        description: action.description,
+        previousValue: (action.previousValue as Record<string, unknown> | null) ?? undefined,
+        newValue: (action.newValue as Record<string, unknown> | null) ?? undefined,
+      };
+      const guard = await checkGuardrails(guardCandidate, { userId });
+      if (!guard.allowed) {
+        await prisma.optimizationAction.update({
+          where: { id: action.id },
+          data: { status: "FAILED" },
+        });
+        summary.failed++;
+        summary.errors.push(
+          `${action.actionType} on ${action.campaignId}: blocked at execute-time (${guard.reasonCode}) ${guard.message ?? ""}`
+        );
+        continue;
       }
 
       if (campaign.platform === "GOOGLE_ADS") {

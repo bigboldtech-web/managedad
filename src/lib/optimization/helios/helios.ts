@@ -3,7 +3,7 @@ import { getPlaybook } from "./playbooks";
 import { computeSignals } from "./signals";
 import { computeScore, normalizeWeights } from "./score";
 import { generateCandidates } from "./candidates";
-import { applyBiasCorrection, lookupFingerprint } from "./fingerprint";
+import { applyBiasCorrection, computeRiskAdjustment, isSuppressed, lookupFingerprint } from "./fingerprint";
 import { checkGuardrails } from "./guardrails";
 import type { ActionCandidate, WeightedObjective } from "./types";
 import type { CampaignAnalysis } from "../types";
@@ -75,14 +75,28 @@ export async function runHelios(params: {
         ? await lookupFingerprint(platform, accountId)
         : null;
     const errors = (fp?.predictionErrors as Parameters<typeof applyBiasCorrection>[1]) || undefined;
+    const { aggressiveness } = computeRiskAdjustment(fp);
 
+    const survivors: typeof generated = [];
     for (const c of generated) {
+      // Drop suppressed action types (silent-rejection history)
+      if (isSuppressed(fp, c.type)) continue;
+
       const corr = applyBiasCorrection(c.expectedDelta, errors, c.type);
       c.expectedDelta = corr.adjustedDelta;
       c.confidence = c.confidence * corr.confidenceMultiplier;
+
+      // Account-level risk adjustment: cautious users get borderline LOW→MED,
+      // MED→HIGH bumps; rubber-stamp users get the reverse.
+      if (aggressiveness < 0.8 && c.riskTier === "LOW") c.riskTier = "MED";
+      else if (aggressiveness < 0.7 && c.riskTier === "MED") c.riskTier = "HIGH";
+      else if (aggressiveness > 1.2 && c.riskTier === "HIGH") c.riskTier = "MED";
+      else if (aggressiveness > 1.3 && c.riskTier === "MED") c.riskTier = "LOW";
+
+      survivors.push(c);
     }
 
-    candidates.push(...generated);
+    candidates.push(...survivors);
   }
 
   const resolved = resolveConflicts(candidates);

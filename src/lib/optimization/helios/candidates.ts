@@ -212,10 +212,30 @@ function creativeCandidates(input: GenInput): ActionCandidate[] {
     if (ad.status !== "ACTIVE") continue;
     if (ad.daysSinceCreated < 14) continue;
     if (ad.impressions < 200) continue;
+
+    // Explicit fatigue signal wins over the generic low-CTR check
+    if (ad.fatigueScore >= 70) {
+      out.push({
+        id: cid("FATIGUE"),
+        type: "PAUSE_AD",
+        campaignId: analysis.campaignId,
+        adId: ad.adId,
+        magnitude: ad.fatigueScore,
+        expectedDelta: 0.08,
+        confidence: confidence * (ad.fatigueScore / 100),
+        riskTier: ad.conversions > 0 ? "MED" : "LOW",
+        reasonCode: "FATIGUE",
+        description: `Pause "${ad.name || ad.adId}" — creative is fatigued (score ${ad.fatigueScore}/100). CTR trending down over 7d. Consider rotating in a fresh variant.`,
+        previousValue: { status: "ACTIVE", fatigueScore: ad.fatigueScore },
+        newValue: { status: "PAUSED" },
+      });
+      continue;
+    }
+
     if (ad.ctr >= analysis.avgCtr * 0.6) continue;
 
     out.push({
-      id: cid("FATIGUE"),
+      id: cid("UNDERPERF"),
       type: "PAUSE_AD",
       campaignId: analysis.campaignId,
       adId: ad.adId,

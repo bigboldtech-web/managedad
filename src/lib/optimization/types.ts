@@ -69,6 +69,8 @@ export interface AdAnalysis {
   spend: number;
   ctr: number;
   daysSinceCreated: number;
+  fatigueScore: number;
+  isFatigued: boolean;
 }
 
 export interface KeywordAnalysis {

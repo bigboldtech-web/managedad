@@ -93,6 +93,8 @@ async function buildCampaignAnalysis(
         (Date.now() - new Date(ad.createdAt).getTime()) /
           (1000 * 60 * 60 * 24)
       ),
+      fatigueScore: ad.fatigueScore,
+      isFatigued: ad.isFatigued,
     };
   });
 
