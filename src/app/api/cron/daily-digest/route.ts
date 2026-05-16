@@ -77,3 +77,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ message: "Daily digests sent", results, timestamp: new Date().toISOString() });
 }
+
+export const GET = POST;

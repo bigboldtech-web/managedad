@@ -117,3 +117,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const GET = POST;

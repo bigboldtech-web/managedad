@@ -54,34 +54,76 @@ export async function GET(req: NextRequest) {
     }
 
     if (customerIds.length > 0) {
-      // Auto-save discovered accounts
+      // Inspect each accessible customer: identify manager accounts vs client
+      // accounts. Manager accounts have no campaigns of their own, so we skip
+      // saving them as billable connections; instead they become the
+      // login-customer-id for any sub-accounts under them.
+      type Resolved = {
+        customerId: string;
+        accountName: string | null;
+        isManager: boolean;
+      };
+      const resolved: Resolved[] = [];
+
       for (const rawId of customerIds) {
         const customerId = rawId.replace(/-/g, "");
-
         let accountName: string | null = null;
+        let isManager = false;
+
         try {
-          const detailRes = await fetch(
-            `https://googleads.googleapis.com/v19/customers/${customerId}`,
+          const searchRes = await fetch(
+            `https://googleads.googleapis.com/v19/customers/${customerId}/googleAds:search`,
             {
+              method: "POST",
               headers: {
                 Authorization: `Bearer ${tokens.access_token}`,
                 "developer-token": process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+                "login-customer-id": customerId,
+                "Content-Type": "application/json",
               },
+              body: JSON.stringify({
+                query:
+                  "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1",
+              }),
             }
           );
-          if (detailRes.ok) {
-            const detail = await detailRes.json();
-            accountName = detail.descriptiveName || null;
+          if (searchRes.ok) {
+            const data = await searchRes.json();
+            const row = data.results?.[0]?.customer;
+            accountName = row?.descriptiveName || null;
+            isManager = row?.manager === true;
+          } else {
+            const errorBody = await searchRes.text();
+            console.error(
+              `Customer ${customerId} inspect failed:`,
+              searchRes.status,
+              errorBody
+            );
           }
-        } catch {
-          // Account name is optional
+        } catch (err) {
+          console.error(`Customer ${customerId} inspect error:`, err);
         }
 
+        resolved.push({ customerId, accountName, isManager });
+      }
+
+      // Pick a manager account (if any) to use as login-customer-id for clients.
+      // Prefer the explicitly configured MCC, otherwise the first manager seen.
+      const envManager = process.env.GOOGLE_ADS_MANAGER_ID?.replace(/-/g, "");
+      const managerCustomerId =
+        resolved.find((r) => r.isManager && r.customerId === envManager)
+          ?.customerId ||
+        resolved.find((r) => r.isManager)?.customerId ||
+        null;
+
+      const clients = resolved.filter((r) => !r.isManager);
+
+      for (const client of clients) {
         await prisma.googleAdsConnection.upsert({
           where: {
             userId_customerId: {
               userId: session.user.id,
-              customerId,
+              customerId: client.customerId,
             },
           },
           update: {
@@ -89,17 +131,27 @@ export async function GET(req: NextRequest) {
             accessToken: tokens.access_token_encrypted,
             tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
             isActive: true,
-            ...(accountName && { accountName }),
+            managerAccountId: managerCustomerId,
+            ...(client.accountName && { accountName: client.accountName }),
           },
           create: {
             userId: session.user.id,
-            customerId,
+            customerId: client.customerId,
             refreshToken: tokens.refresh_token_encrypted,
             accessToken: tokens.access_token_encrypted,
             tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-            ...(accountName && { accountName }),
+            managerAccountId: managerCustomerId,
+            ...(client.accountName && { accountName: client.accountName }),
           },
         });
+      }
+
+      // If only a manager account was returned (no clients yet), drop to manual
+      // setup so the user can pick which sub-account to link.
+      if (clients.length === 0) {
+        return NextResponse.redirect(
+          new URL("/settings?tab=connections&setup=google_manual", baseUrl)
+        );
       }
 
       return NextResponse.redirect(

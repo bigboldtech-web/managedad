@@ -146,3 +146,5 @@ export async function POST(req: NextRequest) {
     timestamp: new Date().toISOString(),
   });
 }
+
+export const GET = POST;

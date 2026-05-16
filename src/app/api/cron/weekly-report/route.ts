@@ -83,3 +83,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ message: "Weekly reports sent", results, timestamp: new Date().toISOString() });
 }
+
+export const GET = POST;
