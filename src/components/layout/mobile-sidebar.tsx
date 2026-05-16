@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, Zap, LayoutDashboard, Megaphone, Target, Facebook, BarChart3, CreditCard, Settings, MessageSquare, Image, Shield, Users, Globe, KeyRound, ClipboardCheck, MapPin, FileText } from "lucide-react";
+import { X, Zap, LayoutDashboard, Megaphone, Target, Facebook, BarChart3, CreditCard, Settings, MessageSquare, Image, Shield, Users, Globe, KeyRound, ClipboardCheck, MapPin, FileText, CheckSquare } from "lucide-react";
 import { useEffect } from "react";
 
 interface MobileSidebarProps {
@@ -32,6 +32,7 @@ const navSections = [
   {
     label: "AI Engine",
     items: [
+      { name: "Approvals", href: "/optimization/approvals", icon: CheckSquare },
       { name: "Automations", href: "/automations", icon: Zap },
       { name: "Creatives", href: "/creatives", icon: Image },
       { name: "Chat", href: "/chat", icon: MessageSquare },

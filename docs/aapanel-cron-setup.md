@@ -64,6 +64,26 @@ task logs, and `--max-time 600` so a hung request can't pile up.
 
 # Mondays 07:00 — weekly AI recommendations
 0 7 * * 1      curl -fsS --max-time 600 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/weekly-recommendations
+
+# ── Helios autonomous optimization (require HELIOS_ENABLED=true on server) ──
+
+# Hourly — anomaly killswitch (auto-pauses runaway campaigns)
+0 * * * *      curl -fsS --max-time 300 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/safety
+
+# Daily 06:00 — micro-tuning of LOW-risk actions (auto-apply users only)
+0 6 * * *      curl -fsS --max-time 900 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/tune
+
+# Sundays 23:00 — weekly strategic run (queues LOW/MED/HIGH actions for Monday review)
+0 23 * * 0     curl -fsS --max-time 1200 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/strategy
+
+# Hourly — soft auto-approve MED actions older than 24h
+0 * * * *      curl -fsS --max-time 120 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/auto-approve
+
+# Daily 04:00 — measure outcomes of applied actions (14d after applyAt)
+0 4 * * *      curl -fsS --max-time 600 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/outcome-check
+
+# Daily 03:30 — recompute per-account fingerprint benchmarks from last 30d
+30 3 * * *     curl -fsS --max-time 600 -H "Authorization: Bearer $CRON_SECRET" https://managedad.com/api/cron/fingerprint-recompute
 ```
 
 ## Exposing CRON_SECRET to cron jobs

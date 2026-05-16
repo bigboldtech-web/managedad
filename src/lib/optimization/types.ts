@@ -26,6 +26,15 @@ export interface OptimizationAction {
   newValue?: Record<string, unknown>;
 }
 
+export interface DailyPoint {
+  date: Date;
+  spend: number;
+  revenue: number;
+  conversions: number;
+  impressions: number;
+  clicks: number;
+}
+
 export interface CampaignAnalysis {
   campaignId: string;
   campaignName: string;
@@ -44,6 +53,9 @@ export interface CampaignAnalysis {
   daysActive: number;
   ads: AdAnalysis[];
   keywords: KeywordAnalysis[];
+  daily?: DailyPoint[];
+  googleAdsConnectionId?: string | null;
+  metaAdsConnectionId?: string | null;
 }
 
 export interface AdAnalysis {

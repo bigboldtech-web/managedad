@@ -42,3 +42,7 @@ next-env.d.ts
 
 # prisma
 prisma/*.db
+
+# Helios — proprietary algorithm spec. Never commit. Internal IP.
+src/lib/optimization/helios/SPEC.md
+src/lib/optimization/helios/SPEC.*.md

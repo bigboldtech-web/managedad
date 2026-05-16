@@ -20,6 +20,7 @@ model User {
   hashedPassword      String?
   image               String?
   role                UserRole  @default(USER)
+  vertical            Vertical  @default(D2C)
   onboardingStep      Int       @default(0)
   onboardingCompleted Boolean   @default(false)
   autonomousMode      Boolean   @default(false)
@@ -51,6 +52,15 @@ model User {
 enum UserRole {
   USER
   ADMIN
+}
+
+enum Vertical {
+  D2C
+  SAAS
+  REAL_ESTATE
+  EDTECH
+  LEAD_GEN
+  OTHER
 }
 
 model Account {
@@ -319,6 +329,8 @@ model Ad {
   clicks       BigInt         @default(0)
   conversions  Int            @default(0)
   spend        Decimal        @default(0) @db.Decimal(12, 2)
+  fatigueScore Int            @default(0)
+  isFatigued   Boolean        @default(false)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -419,6 +431,9 @@ model OptimizationRun {
 enum OptimizationTrigger {
   SCHEDULED
   MANUAL
+  SAFETY
+  TUNE
+  STRATEGY
 }
 
 enum RunStatus {
@@ -436,16 +451,32 @@ model OptimizationAction {
   keywordId         String?
   actionType        ActionType
   description       String
+  reasonCode        String?
+  riskTier          RiskTier     @default(MED)
+  expectedDelta     Decimal?     @db.Decimal(8, 4)
+  confidence        Decimal?     @db.Decimal(5, 4)
   previousValue     Json?
   newValue          Json?
   status            ActionStatus @default(PENDING)
+  autoApprovesAt    DateTime?
   appliedAt         DateTime?
+  outcomeCheckAt    DateTime?
+  actualDelta       Decimal?     @db.Decimal(8, 4)
   createdAt         DateTime     @default(now())
 
   optimizationRun OptimizationRun @relation(fields: [optimizationRunId], references: [id], onDelete: Cascade)
   campaign        Campaign?       @relation(fields: [campaignId], references: [id])
   ad              Ad?             @relation(fields: [adId], references: [id])
   keyword         Keyword?        @relation(fields: [keywordId], references: [id])
+
+  @@index([status, autoApprovesAt])
+  @@index([status, outcomeCheckAt])
+}
+
+enum RiskTier {
+  LOW
+  MED
+  HIGH
 }
 
 enum ActionType {
@@ -618,10 +649,71 @@ model OptimizationSettings {
   highPerformanceThreshold Decimal  @default(2.0) @db.Decimal(5, 2)
   maxBudgetIncrease        Decimal  @default(25) @db.Decimal(5, 2)
   maxBudgetDecrease        Decimal  @default(50) @db.Decimal(5, 2)
+  roasWeight               Decimal  @default(0.6) @db.Decimal(4, 3)
+  cpaWeight                Decimal  @default(0.3) @db.Decimal(4, 3)
+  volumeWeight             Decimal  @default(0.1) @db.Decimal(4, 3)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// HELIOS — Per-account adaptive fingerprint
+// ============================================================
+
+model AccountFingerprint {
+  id                  String     @id @default(cuid())
+  platform            AdPlatform
+  accountId           String
+  userId              String
+  vertical            Vertical   @default(D2C)
+  daysObserved        Int        @default(0)
+  totalActionsApplied Int        @default(0)
+
+  observedGoodCpc  Decimal? @db.Decimal(12, 4)
+  observedGoodCpa  Decimal? @db.Decimal(12, 2)
+  observedGoodRoas Decimal? @db.Decimal(8, 4)
+  observedGoodCtr  Decimal? @db.Decimal(8, 6)
+
+  predictionErrors Json    @default("{}")
+  approvalRateLow  Decimal @default(1.0) @db.Decimal(4, 3)
+  approvalRateMed  Decimal @default(0.5) @db.Decimal(4, 3)
+  approvalRateHigh Decimal @default(0.25) @db.Decimal(4, 3)
+
+  bidAggressiveness         Decimal @default(0) @db.Decimal(4, 3)
+  budgetVolatilityTolerance Decimal @default(0) @db.Decimal(4, 3)
+  creativeRefreshAppetite   Decimal @default(0) @db.Decimal(4, 3)
+
+  silentRejections Json      @default("[]")
+  lastRecomputedAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([platform, accountId])
+  @@index([userId])
+}
+
+// ============================================================
+// HELIOS — Cross-platform learning insights
+// ============================================================
+
+model CrossPlatformInsight {
+  id             String     @id @default(cuid())
+  userId         String
+  sourcePlatform AdPlatform
+  targetPlatform AdPlatform
+  insightType    String
+  pattern        Json
+  confidence     Decimal    @default(0.5) @db.Decimal(4, 3)
+  status         String     @default("SUGGESTED")
+  appearsInCount Int        @default(1)
+  appliedCount   Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, sourcePlatform, targetPlatform])
 }
 
 // ============================================================

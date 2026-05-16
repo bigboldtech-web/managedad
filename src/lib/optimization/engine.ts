@@ -117,6 +117,15 @@ async function buildCampaignAnalysis(
     };
   });
 
+  const daily = campaign.dailyMetrics.map((m) => ({
+    date: m.date,
+    spend: Number(m.spend),
+    revenue: Number(m.revenue),
+    conversions: m.conversions,
+    impressions: Number(m.impressions),
+    clicks: Number(m.clicks),
+  }));
+
   return {
     campaignId: campaign.id,
     campaignName: campaign.name,
@@ -135,6 +144,9 @@ async function buildCampaignAnalysis(
     daysActive,
     ads,
     keywords,
+    daily,
+    googleAdsConnectionId: campaign.googleAdsConnectionId,
+    metaAdsConnectionId: campaign.metaAdsConnectionId,
   };
 }
 
@@ -244,6 +256,107 @@ export async function runOptimization(
         completedAt: new Date(),
         summary,
       },
+    });
+
+    return summary;
+  } catch (error) {
+    await prisma.optimizationRun.update({
+      where: { id: run.id },
+      data: {
+        status: "FAILED",
+        completedAt: new Date(),
+        errorLog: error instanceof Error ? error.message : String(error),
+      },
+    });
+    throw error;
+  }
+}
+
+// ─── Helios runner ───────────────────────────────────────────────
+// New entry point. Gated by env HELIOS_ENABLED. Falls back to runOptimization.
+
+import { runHelios, persistHeliosActions } from "./helios/helios";
+
+export async function runHeliosOptimization(params: {
+  userId: string;
+  triggerType?: "MANUAL" | "SCHEDULED" | "SAFETY" | "TUNE" | "STRATEGY";
+  scopeTiers?: ("LOW" | "MED" | "HIGH")[];
+}): Promise<OptimizationRunSummary> {
+  if (process.env.HELIOS_ENABLED !== "true") {
+    return runOptimization(params.userId);
+  }
+
+  const settings = await getUserSettings(params.userId);
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: params.userId },
+    select: { vertical: true },
+  });
+  const settingsRow = await prisma.optimizationSettings.findUnique({
+    where: { userId: params.userId },
+  });
+
+  const weights = settingsRow
+    ? {
+        roasWeight: Number(settingsRow.roasWeight),
+        cpaWeight: Number(settingsRow.cpaWeight),
+        volumeWeight: Number(settingsRow.volumeWeight),
+      }
+    : undefined;
+
+  const run = await prisma.optimizationRun.create({
+    data: {
+      userId: params.userId,
+      triggerType: params.triggerType ?? "MANUAL",
+      status: "RUNNING",
+      startedAt: new Date(),
+    },
+  });
+
+  try {
+    const campaigns = await prisma.campaign.findMany({
+      where: { userId: params.userId, status: { in: ["ACTIVE", "PAUSED"] } },
+      select: { id: true },
+    });
+
+    const analyses: CampaignAnalysis[] = [];
+    for (const c of campaigns) {
+      analyses.push(await buildCampaignAnalysis(c.id));
+    }
+
+    const result = await runHelios({
+      userId: params.userId,
+      analyses,
+      settings,
+      weights,
+      vertical: user.vertical,
+      scopeTiers: params.scopeTiers,
+    });
+
+    await persistHeliosActions({
+      optimizationRunId: run.id,
+      applied: result.applied,
+      queued: result.queued,
+    });
+
+    const actionsByType: Record<string, number> = {};
+    for (const a of [...result.applied, ...result.queued]) {
+      actionsByType[a.type] = (actionsByType[a.type] || 0) + 1;
+    }
+
+    const summary = {
+      runId: run.id,
+      totalActions: result.applied.length + result.queued.length,
+      actionsByType,
+      campaignsAnalyzed: campaigns.length,
+      appliedCount: result.applied.length,
+      queuedCount: result.queued.length,
+      blockedCount: result.blocked.length,
+      completedAt: new Date().toISOString(),
+    };
+
+    await prisma.optimizationRun.update({
+      where: { id: run.id },
+      data: { status: "COMPLETED", completedAt: new Date(), summary },
     });
 
     return summary;
