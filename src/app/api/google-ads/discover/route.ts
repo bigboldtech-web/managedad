@@ -95,7 +95,7 @@ export async function GET(): Promise<NextResponse<DiscoveryResult>> {
   }
 
   // 1. List accessible customers
-  const listUrl = "https://googleads.googleapis.com/v19/customers:listAccessibleCustomers";
+  const listUrl = "https://googleads.googleapis.com/v20/customers:listAccessibleCustomers";
   const listRes = await fetch(listUrl, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -138,7 +138,7 @@ export async function GET(): Promise<NextResponse<DiscoveryResult>> {
 
     try {
       const searchRes = await fetch(
-        `https://googleads.googleapis.com/v19/customers/${cid}/googleAds:search`,
+        `https://googleads.googleapis.com/v20/customers/${cid}/googleAds:search`,
         {
           method: "POST",
           headers: {

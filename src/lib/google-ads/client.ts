@@ -2,7 +2,7 @@ import { refreshAccessToken } from "./oauth";
 import { prisma } from "@/lib/prisma";
 import { decryptToken } from "@/lib/encryption";
 
-const API_VERSION = "v19";
+const API_VERSION = "v20";
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`;
 
 export class GoogleAdsClient {

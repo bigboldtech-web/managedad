@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
       const customerId = conn.customerId.replace(/-/g, "");
       const res = await fetch(
-        `https://googleads.googleapis.com/v19/customers/${customerId}/customerNegativeCriteria:mutate`,
+        `https://googleads.googleapis.com/v20/customers/${customerId}/customerNegativeCriteria:mutate`,
         {
           method: "POST",
           headers,

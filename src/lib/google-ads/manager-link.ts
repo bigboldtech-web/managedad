@@ -9,10 +9,10 @@
  * Once approved, our developer-token + login-customer-id headers can act
  * on behalf of the client account.
  *
- * API ref: https://developers.google.com/google-ads/api/rest/reference/rest/v19/customers.customerManagerLinks/mutate
+ * API ref: https://developers.google.com/google-ads/api/rest/reference/rest/v20/customers.customerManagerLinks/mutate
  */
 
-const API_VERSION = "v19";
+const API_VERSION = "v20";
 const BASE_URL = `https://googleads.googleapis.com/${API_VERSION}`;
 
 interface LinkParams {
