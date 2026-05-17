@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { auth } from "@/lib/auth";
 import { getMetaAuthUrl } from "@/lib/meta-ads/oauth";
 import { checkAccountLimit } from "@/lib/plan-limits";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await auth();
@@ -18,6 +19,13 @@ export async function GET() {
       { status: 403 }
     );
   }
+
+  // Wipe any stale PENDING row from a previous aborted attempt so the user
+  // always starts the OAuth dance clean. Without this, a half-finished flow
+  // can leave bad state that the picker page surfaces as an error.
+  await prisma.metaAdsConnection.deleteMany({
+    where: { userId: session.user.id, adAccountId: "PENDING" },
+  });
 
   const state = crypto.randomUUID();
   const authUrl = getMetaAuthUrl(state);

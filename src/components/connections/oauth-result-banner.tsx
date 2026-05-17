@@ -64,19 +64,40 @@ function bannerForParams(params: URLSearchParams): Banner | null {
         "We couldn't find any active ad accounts under the profile you connected. Make sure you're signed into the right Google/Meta account, then try again.",
     };
   }
+  if (error === "user_denied" || error === "access_denied") {
+    return {
+      variant: "warning",
+      title: "Permission not granted",
+      body:
+        "You declined permissions on the consent screen, or canceled the OAuth dialog. Click Connect again — and on the consent screen, accept all requested permissions (we need them to read campaign data and apply changes).",
+    };
+  }
+  if (error === "invalid_state") {
+    return {
+      variant: "error",
+      title: "Session expired during connect",
+      body:
+        "The OAuth flow timed out or was opened in a different browser tab. Click Connect again — this time complete the consent within 10 minutes in the same tab.",
+    };
+  }
   if (error === "oauth_failed") {
+    const detail = params.get("detail");
     return {
       variant: "error",
       title: "Connection failed",
-      body:
-        "Something went wrong during the OAuth handshake. Try again — when you see 'Google hasn't verified this app,' click 'Advanced' → 'Go to ManagedAd'.",
+      body: detail
+        ? `Reason: ${detail}. Try again — and if it persists, double-check the Meta App's Valid OAuth Redirect URIs include https://managedad.com/api/meta-ads/callback or https://www.managedad.com/api/meta-ads/callback.`
+        : "Something went wrong during the OAuth handshake. Try again — when you see 'Google hasn't verified this app,' click 'Advanced' → 'Go to ManagedAd'.",
     };
   }
   if (error) {
+    const detail = params.get("detail");
     return {
       variant: "error",
       title: "Something went wrong",
-      body: `Error code: ${error}. Try reconnecting; if it persists, contact support.`,
+      body: detail
+        ? `Error code: ${error}. ${detail}`
+        : `Error code: ${error}. Try reconnecting; if it persists, contact support.`,
     };
   }
   return null;
@@ -107,7 +128,7 @@ export default function OAuthResultBanner() {
   const handleDismiss = () => {
     setDismissed(true);
     const newParams = new URLSearchParams(params.toString());
-    ["connected", "setup", "error", "current", "limit"].forEach((k) => newParams.delete(k));
+    ["connected", "setup", "error", "current", "limit", "detail"].forEach((k) => newParams.delete(k));
     const query = newParams.toString();
     router.replace(`/settings${query ? "?" + query : ""}`);
   };
