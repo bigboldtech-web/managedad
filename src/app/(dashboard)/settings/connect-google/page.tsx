@@ -60,9 +60,11 @@ export default function ConnectGooglePage() {
       const data = (await res.json()) as DiscoveryResult;
       setResult(data);
       if (data.state === "ready") {
-        // Pre-select non-manager accounts (those have real campaigns to manage)
+        // Pre-select non-manager accounts (those have real campaigns to manage).
+        // Includes inaccessible ones — user can link them anyway, we'll send
+        // a manager-link invitation that they accept inside Google Ads UI.
         const auto = new Set(
-          data.accounts.filter((a) => !a.isManager && a.isAccessible).map((a) => a.customerId)
+          data.accounts.filter((a) => !a.isManager).map((a) => a.customerId)
         );
         setSelected(auto);
       }
@@ -234,14 +236,12 @@ export default function ConnectGooglePage() {
                   borderRadius: 8,
                   marginBottom: 8,
                   cursor: "pointer",
-                  opacity: acc.isAccessible ? 1 : 0.5,
                 }}
               >
                 <input
                   type="checkbox"
                   checked={selected.has(acc.customerId)}
                   onChange={() => toggle(acc.customerId)}
-                  disabled={!acc.isAccessible}
                   style={{ accentColor: "#f97316", width: 16, height: 16 }}
                 />
                 <div style={{ flex: 1 }}>
@@ -263,6 +263,22 @@ export default function ConnectGooglePage() {
                         MANAGER
                       </span>
                     )}
+                    {!acc.isAccessible && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: 10,
+                          background: "rgba(251,191,36,0.15)",
+                          color: "#fbbf24",
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          fontWeight: 600,
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        NEEDS MCC LINK
+                      </span>
+                    )}
                   </div>
                   <div
                     style={{
@@ -272,7 +288,11 @@ export default function ConnectGooglePage() {
                     }}
                   >
                     ID: {formatId(acc.customerId)}
-                    {!acc.isAccessible && <span style={{ color: "#f87171" }}> · inaccessible</span>}
+                    {!acc.isAccessible && (
+                      <span style={{ color: "#fbbf24", fontFamily: "inherit", marginLeft: 8 }}>
+                        — link anyway; we&apos;ll send a manager invitation after you click Link
+                      </span>
+                    )}
                   </div>
                 </div>
               </label>

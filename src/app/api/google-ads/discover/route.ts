@@ -129,7 +129,45 @@ export async function GET(): Promise<NextResponse<DiscoveryResult>> {
     });
   }
 
-  // 2. Inspect each customer to determine name + manager status
+  // 2. Inspect each customer to determine name + manager status.
+  // Try two paths: first with the customer's own ID as login-customer-id (direct),
+  // then with the platform MCC as login-customer-id (via manager). An "inaccessible"
+  // verdict only sticks if both fail.
+  const envMcc = process.env.GOOGLE_ADS_MANAGER_ID?.replace(/-/g, "");
+
+  const inspectCustomer = async (
+    cid: string,
+    loginCustomerId: string
+  ): Promise<
+    | { ok: true; name: string | null; isManager: boolean }
+    | { ok: false; status: number; body: string }
+  > => {
+    const searchRes = await fetch(
+      `https://googleads.googleapis.com/v20/customers/${cid}/googleAds:search`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": developerToken,
+          "login-customer-id": loginCustomerId,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query:
+            "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1",
+        }),
+      }
+    );
+    if (searchRes.ok) {
+      const data = (await searchRes.json()) as {
+        results?: { customer?: { descriptiveName?: string; manager?: boolean } }[];
+      };
+      const row = data.results?.[0]?.customer;
+      return { ok: true, name: row?.descriptiveName ?? null, isManager: row?.manager === true };
+    }
+    return { ok: false, status: searchRes.status, body: await searchRes.text() };
+  };
+
   const discovered: DiscoveredAccount[] = [];
   for (const cid of customerIds) {
     let accountName: string | null = null;
@@ -137,29 +175,17 @@ export async function GET(): Promise<NextResponse<DiscoveryResult>> {
     let isAccessible = true;
 
     try {
-      const searchRes = await fetch(
-        `https://googleads.googleapis.com/v20/customers/${cid}/googleAds:search`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "developer-token": developerToken,
-            "login-customer-id": cid,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query:
-              "SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1",
-          }),
-        }
-      );
-      if (searchRes.ok) {
-        const data = (await searchRes.json()) as {
-          results?: { customer?: { descriptiveName?: string; manager?: boolean } }[];
-        };
-        const row = data.results?.[0]?.customer;
-        accountName = row?.descriptiveName ?? null;
-        isManager = row?.manager === true;
+      // Path 1: as the customer itself
+      let result = await inspectCustomer(cid, cid);
+
+      // Path 2: as the platform MCC (catches sub-accounts already managed by us)
+      if (!result.ok && envMcc && envMcc !== cid) {
+        result = await inspectCustomer(cid, envMcc);
+      }
+
+      if (result.ok) {
+        accountName = result.name;
+        isManager = result.isManager;
       } else {
         isAccessible = false;
       }
@@ -168,6 +194,20 @@ export async function GET(): Promise<NextResponse<DiscoveryResult>> {
     }
 
     discovered.push({ customerId: cid, accountName, isManager, isAccessible });
+  }
+
+  // Also surface the platform MCC itself, in case the user wants to link it
+  // even though listAccessibleCustomers didn't return it.
+  if (envMcc && !discovered.some((a) => a.customerId === envMcc)) {
+    const result = await inspectCustomer(envMcc, envMcc);
+    if (result.ok) {
+      discovered.push({
+        customerId: envMcc,
+        accountName: result.name,
+        isManager: result.isManager,
+        isAccessible: true,
+      });
+    }
   }
 
   return NextResponse.json({
