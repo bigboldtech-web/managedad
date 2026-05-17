@@ -4,14 +4,22 @@ import {
   exchangeCodeForToken,
   exchangeLongLivedToken,
 } from "@/lib/meta-ads/oauth";
-import { MetaAdsClient } from "@/lib/meta-ads/client";
 import { prisma } from "@/lib/prisma";
 import { encryptToken } from "@/lib/encryption";
 import { checkAccountLimit } from "@/lib/plan-limits";
 
+/**
+ * Meta Ads OAuth callback.
+ *
+ * Flow:
+ *   1. Validate CSRF state
+ *   2. Exchange short-lived → long-lived access token (60-day expiry)
+ *   3. Store the encrypted token in a PENDING connection row
+ *   4. Redirect to /settings/connect-meta, which discovers accessible
+ *      ad accounts and lets the user pick which to link
+ */
 export async function GET(req: NextRequest) {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
   const session = await auth();
   if (!session?.user?.id) {
@@ -23,101 +31,66 @@ export async function GET(req: NextRequest) {
   const stateCookie = req.cookies.get("meta_oauth_state")?.value;
 
   if (!stateParam || !stateCookie || stateParam !== stateCookie) {
-    return NextResponse.json(
-      { error: "Invalid state parameter" },
-      { status: 403 }
+    return NextResponse.redirect(
+      new URL("/settings?tab=connections&error=invalid_state", baseUrl)
     );
   }
 
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
-      new URL("/meta-ads?error=no_code", baseUrl)
+      new URL("/settings?tab=connections&error=no_code", baseUrl)
     );
   }
 
   const errorParam = req.nextUrl.searchParams.get("error");
   if (errorParam) {
     return NextResponse.redirect(
-      new URL(`/meta-ads?error=${errorParam}`, baseUrl)
+      new URL(`/settings?tab=connections&error=${errorParam}`, baseUrl)
+    );
+  }
+
+  const limitCheck = await checkAccountLimit(session.user.id);
+  if (!limitCheck.allowed) {
+    return NextResponse.redirect(
+      new URL(
+        `/settings?tab=connections&error=plan_limit&current=${limitCheck.current}&limit=${limitCheck.limit}`,
+        baseUrl
+      )
     );
   }
 
   try {
-    // Exchange code for short-lived token
     const shortLivedTokens = await exchangeCodeForToken(code);
-
-    // Exchange for long-lived token (60 days)
     const longLivedTokens = await exchangeLongLivedToken(
       shortLivedTokens.access_token
     );
 
-    // Get user's ad accounts
-    const adAccountsResponse = await MetaAdsClient.listAdAccounts(
-      longLivedTokens.access_token
-    );
-
-    if (adAccountsResponse.data.length === 0) {
-      return NextResponse.redirect(
-        new URL("/settings?tab=connections&error=no_ad_accounts", baseUrl)
-      );
-    }
-
-    // Enforce plan account limit
-    const limitCheck = await checkAccountLimit(session.user.id);
-    if (!limitCheck.allowed) {
-      return NextResponse.redirect(
-        new URL(
-          `/settings?tab=connections&error=plan_limit&current=${limitCheck.current}&limit=${limitCheck.limit}`,
-          baseUrl
-        )
-      );
-    }
-
-    // Cap how many we save to respect remaining seats
-    const remainingSeats =
-      limitCheck.limit === -1
-        ? adAccountsResponse.data.length
-        : Math.max(0, limitCheck.limit - limitCheck.current);
-
-    const accountsToSave = adAccountsResponse.data.slice(0, remainingSeats);
-
-    // Store connections for each ad account
-    for (const account of accountsToSave) {
-      // account.id is in format "act_123456", extract just the number
-      const adAccountId = account.account_id;
-
-      await prisma.metaAdsConnection.upsert({
-        where: {
-          userId_adAccountId: {
-            userId: session.user.id,
-            adAccountId,
-          },
-        },
-        update: {
-          accessToken: encryptToken(longLivedTokens.access_token),
-          tokenExpiresAt: new Date(
-            Date.now() + longLivedTokens.expires_in * 1000
-          ),
-          accountName: account.name,
-          businessId: account.business?.id || null,
-          isActive: true,
-        },
-        create: {
+    await prisma.metaAdsConnection.upsert({
+      where: {
+        userId_adAccountId: {
           userId: session.user.id,
-          adAccountId,
-          accessToken: encryptToken(longLivedTokens.access_token),
-          tokenExpiresAt: new Date(
-            Date.now() + longLivedTokens.expires_in * 1000
-          ),
-          accountName: account.name,
-          businessId: account.business?.id || null,
+          adAccountId: "PENDING",
         },
-      });
-    }
+      },
+      update: {
+        accessToken: encryptToken(longLivedTokens.access_token),
+        tokenExpiresAt: new Date(Date.now() + longLivedTokens.expires_in * 1000),
+        isActive: false,
+        accountName: null,
+        businessId: null,
+      },
+      create: {
+        userId: session.user.id,
+        adAccountId: "PENDING",
+        accessToken: encryptToken(longLivedTokens.access_token),
+        tokenExpiresAt: new Date(Date.now() + longLivedTokens.expires_in * 1000),
+        isActive: false,
+      },
+    });
 
     const successResponse = NextResponse.redirect(
-      new URL("/settings?tab=connections&connected=meta", baseUrl)
+      new URL("/settings/connect-meta", baseUrl)
     );
     successResponse.cookies.delete("meta_oauth_state");
     return successResponse;

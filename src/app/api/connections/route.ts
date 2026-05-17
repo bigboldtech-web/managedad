@@ -31,7 +31,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.metaAdsConnection.findMany({
-      where: { userId },
+      where: { userId, NOT: { adAccountId: "PENDING" } },
       select: {
         id: true,
         adAccountId: true,

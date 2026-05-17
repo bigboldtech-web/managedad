@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { MetaAdsClient } from "@/lib/meta-ads/client";
 
+/**
+ * Finalize a Meta Ads connection.
+ *
+ * Body shape (picker flow, from /settings/connect-meta):
+ *   { adAccountIds: [{ adAccountId, accountName?, businessId? }, ...] }
+ *
+ * Backwards-compatible body shape (single-account, legacy):
+ *   { accessToken } — deprecated, no longer accepted
+ *
+ * Finds the PENDING row (created by callback), copies its encrypted token
+ * onto a real row for each selected ad account, deletes the PENDING row.
+ */
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -10,70 +21,68 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { accessToken } = await req.json();
-    if (!accessToken) {
-      return NextResponse.json({ error: "Missing access token" }, { status: 400 });
-    }
+    const body = await req.json();
+    const targets: { adAccountId: string; accountName?: string; businessId?: string | null }[] =
+      Array.isArray(body.adAccountIds) ? body.adAccountIds : [];
 
-    // Validate token and fetch ad accounts
-    let adAccounts;
-    try {
-      adAccounts = await MetaAdsClient.listAdAccounts(accessToken);
-    } catch (error) {
-      console.error("Failed to list ad accounts:", error);
+    if (targets.length === 0) {
       return NextResponse.json(
-        { error: "Invalid token or no ad accounts found. Make sure you granted ads_read permission." },
+        { error: "Provide adAccountIds (array of { adAccountId, accountName?, businessId? })" },
         { status: 400 }
       );
     }
 
-    if (!adAccounts.data || adAccounts.data.length === 0) {
+    const pending = await prisma.metaAdsConnection.findFirst({
+      where: { userId: session.user.id, adAccountId: "PENDING" },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!pending) {
       return NextResponse.json(
-        { error: "No ad accounts found for this token." },
-        { status: 400 }
+        { error: "No pending Meta connection found. Please reconnect via OAuth first." },
+        { status: 404 }
       );
     }
 
-    // Store connections for each ad account
-    const connections = [];
-    for (const account of adAccounts.data) {
-      const adAccountId = account.account_id;
-      const connection = await prisma.metaAdsConnection.upsert({
+    const saved: string[] = [];
+    for (const target of targets) {
+      const sanitized = target.adAccountId.replace(/[\s]/g, "");
+      if (!sanitized) continue;
+
+      await prisma.metaAdsConnection.upsert({
         where: {
           userId_adAccountId: {
             userId: session.user.id,
-            adAccountId,
+            adAccountId: sanitized,
           },
         },
         update: {
-          accessToken,
-          tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // ~60 days
-          accountName: account.name,
-          businessId: account.business?.id || null,
+          accessToken: pending.accessToken,
+          tokenExpiresAt: pending.tokenExpiresAt,
           isActive: true,
+          ...(target.accountName && { accountName: target.accountName }),
+          ...(target.businessId !== undefined && { businessId: target.businessId }),
         },
         create: {
           userId: session.user.id,
-          adAccountId,
-          accessToken,
-          tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-          accountName: account.name,
-          businessId: account.business?.id || null,
+          adAccountId: sanitized,
+          accessToken: pending.accessToken,
+          tokenExpiresAt: pending.tokenExpiresAt,
+          isActive: true,
+          ...(target.accountName && { accountName: target.accountName }),
+          ...(target.businessId !== undefined && { businessId: target.businessId }),
         },
       });
-      connections.push(connection);
+      saved.push(sanitized);
     }
 
-    return NextResponse.json({
-      success: true,
-      count: connections.length,
-      accounts: adAccounts.data.map((a: { account_id: string; name: string }) => ({
-        id: a.account_id,
-        name: a.name,
-      })),
-    });
+    if (saved.length > 0) {
+      await prisma.metaAdsConnection.delete({ where: { id: pending.id } });
+    }
+
+    return NextResponse.json({ success: true, adAccountIds: saved });
   } catch (error) {
-    console.error("Error saving Meta Ads connection:", error);
+    console.error("Error finalizing Meta Ads connection:", error);
     return NextResponse.json(
       { error: "Failed to save connection" },
       { status: 500 }
@@ -121,7 +130,7 @@ export async function GET() {
 
   try {
     const connections = await prisma.metaAdsConnection.findMany({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, NOT: { adAccountId: "PENDING" } },
       select: {
         id: true,
         adAccountId: true,
