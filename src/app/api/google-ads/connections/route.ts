@@ -63,6 +63,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const envManager = process.env.GOOGLE_ADS_MANAGER_ID?.replace(/-/g, "");
+    // If the user entered the MCC itself, don't tag it as managed-by-self.
+    const managerAccountId =
+      envManager && envManager !== sanitizedId ? envManager : null;
+
     // Create real connection and delete pending
     await prisma.googleAdsConnection.upsert({
       where: {
@@ -76,6 +81,7 @@ export async function POST(req: NextRequest) {
         accessToken: pending.accessToken,
         tokenExpiresAt: pending.tokenExpiresAt,
         isActive: true,
+        managerAccountId,
         ...(accountName && { accountName }),
       },
       create: {
@@ -85,6 +91,7 @@ export async function POST(req: NextRequest) {
         accessToken: pending.accessToken,
         tokenExpiresAt: pending.tokenExpiresAt,
         isActive: true,
+        managerAccountId,
         ...(accountName && { accountName }),
       },
     });
