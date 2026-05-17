@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { decryptToken } from "@/lib/encryption";
+import { sendManagerLinkInvitation } from "@/lib/google-ads/manager-link";
 
 export async function DELETE(req: NextRequest) {
   const session = await auth();
@@ -41,19 +43,33 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { customerId, accountName } = await req.json();
-    if (!customerId) {
-      return NextResponse.json({ error: "Missing customer ID" }, { status: 400 });
+    const body = await req.json();
+
+    // Accept either a single { customerId, accountName } OR
+    // an array { customerIds: [{ customerId, accountName?, isManager? }, ...] }
+    let targets: { customerId: string; accountName?: string; isManager?: boolean }[];
+    if (Array.isArray(body.customerIds)) {
+      targets = body.customerIds;
+    } else if (body.customerId) {
+      targets = [{ customerId: body.customerId, accountName: body.accountName }];
+    } else {
+      return NextResponse.json(
+        { error: "Provide customerId (single) or customerIds (array)" },
+        { status: 400 }
+      );
     }
 
-    const sanitizedId = customerId.replace(/[-\s]/g, "");
-    if (!/^\d{3,10}$/.test(sanitizedId)) {
-      return NextResponse.json({ error: "Invalid customer ID format" }, { status: 400 });
+    if (targets.length === 0) {
+      return NextResponse.json(
+        { error: "No customer IDs provided" },
+        { status: 400 }
+      );
     }
 
     // Find the pending connection
     const pending = await prisma.googleAdsConnection.findFirst({
       where: { userId: session.user.id, customerId: "PENDING" },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!pending) {
@@ -64,42 +80,81 @@ export async function POST(req: NextRequest) {
     }
 
     const envManager = process.env.GOOGLE_ADS_MANAGER_ID?.replace(/-/g, "");
-    // If the user entered the MCC itself, don't tag it as managed-by-self.
-    const managerAccountId =
-      envManager && envManager !== sanitizedId ? envManager : null;
+    const saved: string[] = [];
 
-    // Create real connection and delete pending
-    await prisma.googleAdsConnection.upsert({
-      where: {
-        userId_customerId: {
+    for (const target of targets) {
+      const sanitizedId = target.customerId.replace(/[-\s]/g, "");
+      if (!/^\d{3,10}$/.test(sanitizedId)) continue;
+
+      // If user is linking their own MCC, don't tag it as managed-by-itself.
+      // If they're linking a sub-account and we know the platform MCC, tag it.
+      const managerAccountId =
+        target.isManager
+          ? null
+          : envManager && envManager !== sanitizedId
+            ? envManager
+            : null;
+
+      await prisma.googleAdsConnection.upsert({
+        where: {
+          userId_customerId: {
+            userId: session.user.id,
+            customerId: sanitizedId,
+          },
+        },
+        update: {
+          refreshToken: pending.refreshToken,
+          accessToken: pending.accessToken,
+          tokenExpiresAt: pending.tokenExpiresAt,
+          isActive: true,
+          managerAccountId,
+          ...(target.accountName && { accountName: target.accountName }),
+        },
+        create: {
           userId: session.user.id,
           customerId: sanitizedId,
+          refreshToken: pending.refreshToken,
+          accessToken: pending.accessToken,
+          tokenExpiresAt: pending.tokenExpiresAt,
+          isActive: true,
+          managerAccountId,
+          ...(target.accountName && { accountName: target.accountName }),
         },
-      },
-      update: {
-        refreshToken: pending.refreshToken,
-        accessToken: pending.accessToken,
-        tokenExpiresAt: pending.tokenExpiresAt,
-        isActive: true,
-        managerAccountId,
-        ...(accountName && { accountName }),
-      },
-      create: {
-        userId: session.user.id,
-        customerId: sanitizedId,
-        refreshToken: pending.refreshToken,
-        accessToken: pending.accessToken,
-        tokenExpiresAt: pending.tokenExpiresAt,
-        isActive: true,
-        managerAccountId,
-        ...(accountName && { accountName }),
-      },
-    });
+      });
+      saved.push(sanitizedId);
+    }
 
-    // Delete the pending record
-    await prisma.googleAdsConnection.delete({ where: { id: pending.id } });
+    // Delete the pending record once at least one real connection saved
+    if (saved.length > 0) {
+      await prisma.googleAdsConnection.delete({ where: { id: pending.id } });
+    }
 
-    return NextResponse.json({ success: true, customerId: sanitizedId });
+    // Best-effort: send MCC link invitations for any sub-accounts we just linked
+    // so they appear under our manager. Failures don't block the response.
+    if (envManager) {
+      try {
+        const accessToken = decryptToken(pending.accessToken ?? "");
+        for (const target of targets) {
+          const sanitizedId = target.customerId.replace(/[-\s]/g, "");
+          if (!/^\d{3,10}$/.test(sanitizedId)) continue;
+          if (target.isManager) continue;
+          if (sanitizedId === envManager) continue;
+          try {
+            await sendManagerLinkInvitation({
+              clientCustomerId: sanitizedId,
+              managerCustomerId: envManager,
+              accessToken,
+            });
+          } catch (err) {
+            console.error(`Manager link invitation failed for ${sanitizedId}:`, err);
+          }
+        }
+      } catch (err) {
+        console.error("Manager link invitation block failed:", err);
+      }
+    }
+
+    return NextResponse.json({ success: true, customerIds: saved });
   } catch (error) {
     console.error("Error finalizing Google Ads connection:", error);
     return NextResponse.json(

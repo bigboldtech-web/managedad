@@ -10,7 +10,6 @@ interface Banner {
   variant: Variant;
   title: string;
   body: string;
-  showManualEntry?: boolean;
 }
 
 function bannerForParams(params: URLSearchParams): Banner | null {
@@ -23,7 +22,7 @@ function bannerForParams(params: URLSearchParams): Banner | null {
       variant: "success",
       title: "Google Ads connected",
       body:
-        "We've sent a manager-account link invitation to your Google Ads. Approve it in Google Ads → Tools → Account access → Managers, and we'll start syncing within an hour. If you're already managed by us, you're done.",
+        "We'll start syncing your campaigns within the hour. If we linked a sub-account under your MCC, accept the manager link invitation in Google Ads → Tools → Account access → Managers.",
     };
   }
   if (connected === "meta") {
@@ -34,12 +33,11 @@ function bannerForParams(params: URLSearchParams): Banner | null {
     };
   }
   if (setup === "google_manual") {
+    // Legacy URL — new flow uses /settings/connect-google. Banner kept for old links.
     return {
-      variant: "warning",
-      title: "Google connected — finish setup by entering your customer ID",
-      body:
-        "We couldn't auto-detect your Google Ads accounts. Paste your 10-digit customer ID below (find it in Google Ads UI, top-right of any page). We'll link the connection to it directly.",
-      showManualEntry: true,
+      variant: "info",
+      title: "Google sign-in complete",
+      body: "Continue to pick which Google Ads accounts to link.",
     };
   }
   if (error === "plan_limit") {
@@ -71,7 +69,7 @@ function bannerForParams(params: URLSearchParams): Banner | null {
       variant: "error",
       title: "Connection failed",
       body:
-        "Something went wrong during the OAuth handshake. Common cause: clicking 'Cancel' on Google's verification warning. Try again — when you see 'Google hasn't verified this app,' click 'Advanced' → 'Go to ManagedAd'.",
+        "Something went wrong during the OAuth handshake. Try again — when you see 'Google hasn't verified this app,' click 'Advanced' → 'Go to ManagedAd'.",
     };
   }
   if (error) {
@@ -95,15 +93,10 @@ export default function OAuthResultBanner() {
   const params = useSearchParams();
   const router = useRouter();
   const [dismissed, setDismissed] = useState(false);
-  const [customerId, setCustomerId] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const banner = bannerForParams(new URLSearchParams(params.toString()));
 
   useEffect(() => {
     setDismissed(false);
-    setSaveError(null);
   }, [params]);
 
   if (!banner || dismissed) return null;
@@ -117,32 +110,6 @@ export default function OAuthResultBanner() {
     ["connected", "setup", "error", "current", "limit"].forEach((k) => newParams.delete(k));
     const query = newParams.toString();
     router.replace(`/settings${query ? "?" + query : ""}`);
-  };
-
-  const handleManualSave = async () => {
-    const sanitized = customerId.replace(/[-\s]/g, "");
-    if (!/^\d{3,10}$/.test(sanitized)) {
-      setSaveError("Customer ID must be 7-10 digits (dashes allowed, e.g. 123-456-7890)");
-      return;
-    }
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch("/api/google-ads/connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId: sanitized, accountName: accountName || undefined }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Save failed" }));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
-      router.replace("/settings?tab=connections&connected=google");
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (
@@ -163,71 +130,6 @@ export default function OAuthResultBanner() {
           {banner.title}
         </div>
         <div style={{ color: "#a1a1aa", fontSize: 13, lineHeight: 1.55 }}>{banner.body}</div>
-
-        {banner.showManualEntry && (
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <input
-                type="text"
-                placeholder="Customer ID (e.g. 123-456-7890)"
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-                disabled={saving}
-                style={{
-                  flex: "1 1 240px",
-                  background: "#18181c",
-                  border: "1px solid #27272e",
-                  color: "#fafafa",
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontFamily: "var(--font-ibm-plex-mono), monospace",
-                  outline: "none",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Account name (optional)"
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                disabled={saving}
-                style={{
-                  flex: "1 1 200px",
-                  background: "#18181c",
-                  border: "1px solid #27272e",
-                  color: "#fafafa",
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  fontSize: 13,
-                  outline: "none",
-                }}
-              />
-              <button
-                onClick={handleManualSave}
-                disabled={saving || !customerId.trim()}
-                style={{
-                  background: saving || !customerId.trim() ? "#27272e" : "#f97316",
-                  color: saving || !customerId.trim() ? "#71717a" : "#fff",
-                  border: "none",
-                  padding: "9px 18px",
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: saving || !customerId.trim() ? "not-allowed" : "pointer",
-                }}
-              >
-                {saving ? "Saving…" : "Link account"}
-              </button>
-            </div>
-            {saveError && (
-              <div style={{ color: "#f87171", fontSize: 12 }}>{saveError}</div>
-            )}
-            <div style={{ color: "#52525b", fontSize: 11 }}>
-              Customer ID is the 10-digit number in the top-right corner of your Google Ads UI (e.g.
-              325-372-0007). Use either your MCC ID or a specific sub-account ID.
-            </div>
-          </div>
-        )}
       </div>
       <button
         onClick={handleDismiss}
