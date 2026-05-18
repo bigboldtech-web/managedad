@@ -465,6 +465,7 @@ model OptimizationAction {
   previousValue     Json?
   newValue          Json?
   status            ActionStatus @default(PENDING)
+  errorMessage      String?      @db.Text
   autoApprovesAt    DateTime?
   appliedAt         DateTime?
   outcomeCheckAt    DateTime?

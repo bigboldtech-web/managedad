@@ -113,7 +113,10 @@ export async function executeApprovedActions(
 
       await prisma.optimizationAction.update({
         where: { id: action.id },
-        data: { status: "FAILED" },
+        data: {
+          status: "FAILED",
+          errorMessage: errorMessage.slice(0, 2000),
+        },
       });
 
       summary.failed++;
