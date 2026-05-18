@@ -16,6 +16,12 @@ const DEFAULT_WEIGHTS: WeightedObjective = {
   volumeWeight: 0.1,
 };
 
+// Hard ceiling on actions per Helios run per account.
+// A real performance marketer makes maybe 5-15 changes per week on a healthy
+// account. Beyond that we're either noise-chasing or there's an account-wide
+// problem that's structural (not solved by per-keyword tweaks).
+const MAX_ACTIONS_PER_ACCOUNT_PER_RUN = 25;
+
 export interface HeliosRunResult {
   candidates: ActionCandidate[];
   applied: ActionCandidate[];
@@ -99,7 +105,13 @@ export async function runHelios(params: {
     candidates.push(...survivors);
   }
 
-  const resolved = resolveConflicts(candidates);
+  let resolved = resolveConflicts(candidates);
+
+  // Hard cap. Keep the highest-rank actions; drop the rest.
+  // resolveConflicts already returns sorted descending by rankScore.
+  if (resolved.length > MAX_ACTIONS_PER_ACCOUNT_PER_RUN) {
+    resolved = resolved.slice(0, MAX_ACTIONS_PER_ACCOUNT_PER_RUN);
+  }
 
   const result: HeliosRunResult = {
     candidates: resolved,

@@ -72,20 +72,48 @@ function budgetCandidates(input: GenInput): ActionCandidate[] {
   return out;
 }
 
+// Bid adjustment thresholds — conservative defaults to avoid mass-tweaking.
+// A keyword must have STRONG signal before we touch its bid.
+const BID_MIN_CONVERSIONS = 10;        // need ≥10 conversions to trust the CPA signal
+const BID_MIN_CLICKS = 100;            // and ≥100 clicks to ensure baseline volume
+const BID_CPA_HIGH_RATIO = 1.5;        // CPA must be ≥1.5x target before cutting (was 1.3x)
+const BID_CPA_LOW_RATIO = 0.6;         // CPA must be ≤0.6x target before raising (was 0.7x)
+const BID_MAX_PER_CAMPAIGN = 3;        // max 3 bid adjustments per campaign per run
+
 function bidCandidates(input: GenInput): ActionCandidate[] {
   const { analysis, playbook, confidence } = input;
   const out: ActionCandidate[] = [];
 
   if (analysis.platform !== "GOOGLE_ADS") return out;
 
+  type Scored = { kw: typeof analysis.keywords[number]; deviation: number };
+  const eligible: Scored[] = [];
+
   for (const kw of analysis.keywords) {
     if (kw.isNegative || kw.status !== "ACTIVE") continue;
-    if (kw.conversions < 5) continue;
+    if (kw.conversions < BID_MIN_CONVERSIONS) continue;
+    if (kw.clicks < BID_MIN_CLICKS) continue;
+    if (kw.cpc <= 0) continue;
 
     const kwCpa = kw.spend / kw.conversions;
     const ratio = kwCpa / playbook.goodCpa;
 
-    if (ratio > 1.3 && kw.cpc > 0) {
+    if (ratio > BID_CPA_HIGH_RATIO || ratio < BID_CPA_LOW_RATIO) {
+      // Score by absolute deviation from target so we surface the worst offenders first
+      const deviation = Math.abs(ratio - 1);
+      eligible.push({ kw, deviation });
+    }
+  }
+
+  // Only act on the top N most-deviant keywords per campaign
+  eligible.sort((a, b) => b.deviation - a.deviation);
+  const winners = eligible.slice(0, BID_MAX_PER_CAMPAIGN);
+
+  for (const { kw } of winners) {
+    const kwCpa = kw.spend / kw.conversions;
+    const ratio = kwCpa / playbook.goodCpa;
+
+    if (ratio > BID_CPA_HIGH_RATIO) {
       const pct = clamp(10 * (ratio - 1), 5, 25);
       const newCpc = round2(kw.cpc * (1 - pct / 100));
       out.push({
@@ -102,7 +130,7 @@ function bidCandidates(input: GenInput): ActionCandidate[] {
         previousValue: { cpc: kw.cpc, cpa: kwCpa },
         newValue: { cpc: newCpc, bidMicros: Math.round(newCpc * 1_000_000) },
       });
-    } else if (ratio < 0.7 && kw.cpc > 0) {
+    } else if (ratio < BID_CPA_LOW_RATIO) {
       const pct = clamp(10 * (1 - ratio), 5, 20);
       const newCpc = round2(kw.cpc * (1 + pct / 100));
       out.push({
@@ -125,52 +153,76 @@ function bidCandidates(input: GenInput): ActionCandidate[] {
   return out;
 }
 
+// Keyword waste thresholds — only flag truly wasteful keywords.
+// Avg CPC × clicks gives spend; we want enough spend AND clicks that a
+// single click outlier doesn't trigger action.
+const NEG_MIN_SPEND = 100;             // ≥₹100 wasted (was ₹30)
+const NEG_MIN_CLICKS = 50;             // ≥50 clicks (was 20)
+const PAUSE_MIN_SPEND = 200;           // ≥₹200 wasted (was ₹50)
+const PAUSE_MIN_CLICKS = 100;          // ≥100 clicks (was 50)
+const KW_MAX_PER_CAMPAIGN = 5;         // max 5 negative/pause actions per campaign per run
+
 function keywordCandidates(input: GenInput): ActionCandidate[] {
   const { analysis, confidence } = input;
   const out: ActionCandidate[] = [];
   if (analysis.platform !== "GOOGLE_ADS") return out;
 
+  type Scored = { kw: typeof analysis.keywords[number]; spend: number };
+  const negEligible: Scored[] = [];
+  const pauseEligible: Scored[] = [];
+
   for (const kw of analysis.keywords) {
     if (kw.isNegative || kw.status !== "ACTIVE") continue;
+    if (kw.conversions !== 0) continue;
 
     if (
       kw.matchType === "BROAD" &&
-      kw.spend >= 30 &&
-      kw.clicks >= 20 &&
-      kw.conversions === 0
+      kw.spend >= NEG_MIN_SPEND &&
+      kw.clicks >= NEG_MIN_CLICKS
     ) {
-      out.push({
-        id: cid("NEG_ADD"),
-        type: "ADD_NEGATIVE_KEYWORD",
-        campaignId: analysis.campaignId,
-        keywordId: kw.keywordId,
-        magnitude: kw.spend,
-        expectedDelta: kw.spend / Math.max(analysis.totalSpend, 1),
-        confidence,
-        riskTier: "LOW",
-        reasonCode: "KEYWORD_WASTE",
-        description: `Add "${kw.text}" as negative — broad match spent ₹${kw.spend.toFixed(2)} with 0 conversions`,
-        previousValue: { isNegative: false, matchType: kw.matchType },
-        newValue: { keyword: kw.text, matchType: "EXACT" },
-      });
+      negEligible.push({ kw, spend: kw.spend });
     }
+    if (kw.spend >= PAUSE_MIN_SPEND && kw.clicks >= PAUSE_MIN_CLICKS) {
+      pauseEligible.push({ kw, spend: kw.spend });
+    }
+  }
 
-    if (kw.spend >= 50 && kw.clicks >= 50 && kw.conversions === 0) {
-      out.push({
-        id: cid("KW_PAUSE"),
-        type: "PAUSE_KEYWORD",
-        campaignId: analysis.campaignId,
-        keywordId: kw.keywordId,
-        magnitude: kw.spend,
-        expectedDelta: kw.spend / Math.max(analysis.totalSpend, 1),
-        confidence,
-        riskTier: "LOW",
-        reasonCode: "KEYWORD_WASTE",
-        description: `Pause "${kw.text}" — ${kw.clicks} clicks, ₹${kw.spend.toFixed(2)} spend, 0 conversions`,
-        previousValue: { status: "ACTIVE", clicks: kw.clicks, spend: kw.spend },
-        newValue: { status: "PAUSED" },
-      });
-    }
+  // Surface highest-spend wasteful keywords first
+  negEligible.sort((a, b) => b.spend - a.spend);
+  pauseEligible.sort((a, b) => b.spend - a.spend);
+
+  for (const { kw } of negEligible.slice(0, KW_MAX_PER_CAMPAIGN)) {
+    out.push({
+      id: cid("NEG_ADD"),
+      type: "ADD_NEGATIVE_KEYWORD",
+      campaignId: analysis.campaignId,
+      keywordId: kw.keywordId,
+      magnitude: kw.spend,
+      expectedDelta: kw.spend / Math.max(analysis.totalSpend, 1),
+      confidence,
+      riskTier: "LOW",
+      reasonCode: "KEYWORD_WASTE",
+      description: `Add "${kw.text}" as negative — broad match spent ₹${kw.spend.toFixed(2)} with 0 conversions over ${kw.clicks} clicks`,
+      previousValue: { isNegative: false, matchType: kw.matchType },
+      newValue: { keyword: kw.text, matchType: "EXACT" },
+    });
+  }
+
+  for (const { kw } of pauseEligible.slice(0, KW_MAX_PER_CAMPAIGN)) {
+    out.push({
+      id: cid("KW_PAUSE"),
+      type: "PAUSE_KEYWORD",
+      campaignId: analysis.campaignId,
+      keywordId: kw.keywordId,
+      magnitude: kw.spend,
+      expectedDelta: kw.spend / Math.max(analysis.totalSpend, 1),
+      confidence,
+      riskTier: "LOW",
+      reasonCode: "KEYWORD_WASTE",
+      description: `Pause "${kw.text}" — ${kw.clicks} clicks, ₹${kw.spend.toFixed(2)} spend, 0 conversions`,
+      previousValue: { status: "ACTIVE", clicks: kw.clicks, spend: kw.spend },
+      newValue: { status: "PAUSED" },
+    });
   }
 
   return out;
