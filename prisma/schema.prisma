@@ -13,19 +13,24 @@ datasource db {
 // ============================================================
 
 model User {
-  id                  String    @id @default(cuid())
-  name                String?
-  email               String    @unique
-  emailVerified       DateTime?
-  hashedPassword      String?
-  image               String?
-  role                UserRole  @default(USER)
-  vertical            Vertical  @default(D2C)
-  onboardingStep      Int       @default(0)
-  onboardingCompleted Boolean   @default(false)
-  autonomousMode      Boolean   @default(false)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                          String    @id @default(cuid())
+  name                        String?
+  email                       String    @unique
+  emailVerified               DateTime?
+  hashedPassword              String?
+  image                       String?
+  role                        UserRole  @default(USER)
+  vertical                    Vertical  @default(D2C)
+  onboardingStep              Int       @default(0)
+  onboardingCompleted         Boolean   @default(false)
+  autonomousMode              Boolean   @default(false)
+  // AI credits: monthly allowance per plan + top-up balance that never expires
+  creditBalance               Int       @default(0)
+  monthlyChatUsed             Int       @default(0)
+  monthlyCreativeBriefUsed    Int       @default(0)
+  monthlyUsageResetAt         DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   accounts               Account[]
   sessions               Session[]
@@ -47,6 +52,8 @@ model User {
   actionItems            ActionItem[]
   tiktokAdsConnections   TikTokAdsConnection[]
   linkedInAdsConnections LinkedInAdsConnection[]
+  creditTransactions     CreditTransaction[]
+  creditPurchases        CreditPurchase[]
 }
 
 enum UserRole {
@@ -805,4 +812,55 @@ model ActionItem {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+}
+
+// ============================================================
+// AI CREDITS — monthly allowance + paid top-up
+// ============================================================
+
+model CreditTransaction {
+  id          String                @id @default(cuid())
+  userId      String
+  type        CreditTransactionType
+  feature     String?               // CHAT | CREATIVE_BRIEF | REFUND | GIFT | PURCHASE
+  amount      Int                   // positive for purchase/gift/refund, negative for consume
+  balanceAfter Int                  // resulting topup balance after this txn
+  source      String?               // razorpayPaymentId or admin user id
+  metadata    Json?
+  createdAt   DateTime              @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+enum CreditTransactionType {
+  PURCHASE
+  CONSUME
+  REFUND
+  GIFT
+  EXPIRY
+}
+
+model CreditPurchase {
+  id                String         @id @default(cuid())
+  userId            String
+  packSize          Int            // 100 | 500 | 1000 | 5000
+  amountPaise       Int            // total paid in paise (INR × 100)
+  status            PurchaseStatus @default(PENDING)
+  razorpayOrderId   String?        @unique
+  razorpayPaymentId String?        @unique
+  createdAt         DateTime       @default(now())
+  completedAt       DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }

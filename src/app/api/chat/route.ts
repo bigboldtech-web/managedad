@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAnthropic, CLAUDE_MODEL } from "@/lib/anthropic";
 import { checkFeatureAccess } from "@/lib/plan-limits";
 import { rateLimit } from "@/lib/rate-limit";
+import { consumeCredits, refundCredits } from "@/lib/credits";
 
 // Pull a compact account snapshot for the AI context
 async function buildAccountContext(userId: string): Promise<string> {
@@ -106,9 +107,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Credit consumption — deducts from monthly allowance first, then topup balance
+  const credit = await consumeCredits(session.user.id, "CHAT");
+  if (!credit.ok) {
+    return NextResponse.json(
+      {
+        error:
+          "You've used your monthly chat allowance and have no credit balance. Buy credits to keep using chat.",
+        code: "insufficient_credits",
+        required: credit.required,
+        topupRemaining: credit.topupRemaining,
+      },
+      { status: 402 }
+    );
+  }
+  const creditSource = credit.source!;
+
   try {
     const { messages } = await req.json() as { messages: ChatMessage[] };
     if (!Array.isArray(messages) || messages.length === 0) {
+      // Refund — request was malformed, didn't actually consume AI tokens
+      await refundCredits(session.user.id, "CHAT", creditSource);
       return NextResponse.json({ error: "messages required" }, { status: 400 });
     }
 
@@ -202,6 +221,10 @@ Only append ACTION_BUTTONS if there are real actions to take. Do not append if j
     });
   } catch (err) {
     console.error("Chat API error:", err);
+    // Refund the credit since the AI call didn't actually succeed
+    await refundCredits(session.user.id, "CHAT", creditSource).catch((e) =>
+      console.error("Failed to refund chat credit:", e)
+    );
     return NextResponse.json({ error: "Failed to get AI response" }, { status: 500 });
   }
 }

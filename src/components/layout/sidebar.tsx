@@ -78,6 +78,7 @@ const navSections = [
     label: "Account",
     items: [
       { name: "Billing", href: "/billing", icon: CreditCard },
+      { name: "AI Credits", href: "/billing/credits", icon: Sparkles },
       { name: "Settings", href: "/settings", icon: Settings },
     ],
   },
