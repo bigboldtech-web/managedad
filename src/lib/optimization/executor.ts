@@ -4,6 +4,18 @@ import { createMetaAdsClient } from "@/lib/meta-ads/client";
 import { checkGuardrails } from "./helios/guardrails";
 import type { ActionCandidate } from "./helios/types";
 
+/**
+ * Extracts the bare numeric ID from a Google Ads resource name.
+ * Sync stores externalId as the full resource path
+ * (e.g. "customers/4896312747/campaigns/17479529732"), but Google's API
+ * expects just the ID in some contexts. Handles both already-bare IDs
+ * and full resource names.
+ */
+function extractId(resourceNameOrId: string): string {
+  const parts = resourceNameOrId.split("/");
+  return parts[parts.length - 1];
+}
+
 interface ExecutionSummary {
   applied: number;
   failed: number;
@@ -167,8 +179,9 @@ async function executeGoogleAction(
     case "DECREASE_BUDGET": {
       // Budget is set on the campaign's budget resource.
       // First, query for the campaign's budget resource name.
+      const campaignId = extractId(campaign.externalId);
       const results = await client.search(
-        `SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = ${campaign.externalId}`
+        `SELECT campaign.campaign_budget FROM campaign WHERE campaign.id = ${campaignId}`
       );
       if (!results.length || !results[0].campaign?.campaignBudget) {
         throw new Error("Could not find campaign budget resource");
@@ -202,8 +215,8 @@ async function executeGoogleAction(
       if (!ad.externalId) throw new Error("Ad missing externalId");
       if (!ad.adGroup?.externalId) throw new Error("Ad missing adGroup externalId");
 
-      const adGroupResourceName = `customers/${customerId}/adGroups/${ad.adGroup.externalId}`;
-      const adResourceName = `${adGroupResourceName}/ads/${ad.externalId}`;
+      const adGroupId = extractId(ad.adGroup.externalId);
+      const adId = extractId(ad.externalId);
       const status = action.actionType === "PAUSE_AD" ? "PAUSED" : "ENABLED";
 
       await client.mutate([
@@ -211,7 +224,7 @@ async function executeGoogleAction(
           adGroupAdOperation: {
             updateMask: "status",
             update: {
-              resourceName: `customers/${customerId}/adGroupAds/${ad.adGroup.externalId}~${ad.externalId}`,
+              resourceName: `customers/${customerId}/adGroupAds/${adGroupId}~${adId}`,
               status,
             },
           },
@@ -231,12 +244,14 @@ async function executeGoogleAction(
       if (!keyword.adGroup?.externalId)
         throw new Error("Keyword missing adGroup externalId");
 
+      const adGroupIdK = extractId(keyword.adGroup.externalId);
+      const criterionIdK = extractId(keyword.externalId);
       await client.mutate([
         {
           adGroupCriterionOperation: {
             updateMask: "status",
             update: {
-              resourceName: `customers/${customerId}/adGroupCriteria/${keyword.adGroup.externalId}~${keyword.externalId}`,
+              resourceName: `customers/${customerId}/adGroupCriteria/${adGroupIdK}~${criterionIdK}`,
               status: "PAUSED",
             },
           },
@@ -248,7 +263,8 @@ async function executeGoogleAction(
     case "ADD_NEGATIVE_KEYWORD": {
       const keywordText = newValue.keyword as string;
       const matchType = (newValue.matchType as string) || "BROAD";
-      const campaignResourceName = `customers/${customerId}/campaigns/${campaign.externalId}`;
+      const cId = extractId(campaign.externalId);
+      const campaignResourceName = `customers/${customerId}/campaigns/${cId}`;
 
       await client.addNegativeKeywords(campaignResourceName, [
         { text: keywordText, matchType },
@@ -266,15 +282,28 @@ async function executeGoogleAction(
       if (!keyword.adGroup?.externalId)
         throw new Error("Keyword missing adGroup externalId");
 
-      const bidMicros = (newValue.bidMicros as number).toString();
+      // Resolve bid in micros. Prefer the candidate-provided bidMicros;
+      // fall back to deriving from cpc if a legacy action only has cpc.
+      let bidMicrosNum: number | null = null;
+      if (typeof newValue.bidMicros === "number") {
+        bidMicrosNum = newValue.bidMicros;
+      } else if (typeof newValue.cpc === "number") {
+        bidMicrosNum = Math.round(newValue.cpc * 1_000_000);
+      }
+      if (bidMicrosNum == null) {
+        throw new Error("ADJUST_BID action missing bidMicros / cpc");
+      }
+
+      const adGroupIdB = extractId(keyword.adGroup.externalId);
+      const criterionIdB = extractId(keyword.externalId);
 
       await client.mutate([
         {
           adGroupCriterionOperation: {
             updateMask: "cpc_bid_micros",
             update: {
-              resourceName: `customers/${customerId}/adGroupCriteria/${keyword.adGroup.externalId}~${keyword.externalId}`,
-              cpcBidMicros: bidMicros,
+              resourceName: `customers/${customerId}/adGroupCriteria/${adGroupIdB}~${criterionIdB}`,
+              cpcBidMicros: bidMicrosNum.toString(),
             },
           },
         },
